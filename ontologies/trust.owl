@@ -1,0 +1,34 @@
+<?xml version="1.0"?>
+<rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"
+         xmlns:rdfs="http://www.w3.org/2000/01/rdf-schema#"
+         xmlns:owl="http://www.w3.org/2002/07/owl#"
+         xmlns:xsd="http://www.w3.org/2001/XMLSchema#"
+         xmlns:trust="http://example.org/trust#">
+
+    <owl:Ontology rdf:about="http://example.org/trust"/>
+
+    <!-- Define Trust Entities -->
+    <owl:Class rdf:about="http://example.org/trust#Person"/>
+    <owl:Class rdf:about="http://example.org/trust#Credential"/>
+
+    <!-- Trust Properties -->
+    <owl:ObjectProperty rdf:about="http://example.org/trust#hasCredential">
+        <rdfs:domain rdf:resource="http://example.org/trust#Person"/>
+        <rdfs:range rdf:resource="http://example.org/trust#Credential"/>
+    </owl:ObjectProperty>
+
+    <!-- Define a specific credential -->
+    <trust:Credential rdf:about="http://example.org/trust#VerifiedCredential"/>
+
+    <!-- Trust Rule: A Person with a Verified Credential is Trusted -->
+    <owl:Class rdf:about="http://example.org/trust#TrustedPerson">
+        <rdfs:subClassOf rdf:resource="http://example.org/trust#Person"/>
+        <owl:equivalentClass>
+            <owl:Restriction>
+                <owl:onProperty rdf:resource="http://example.org/trust#hasCredential"/>
+                <owl:someValuesFrom rdf:resource="http://example.org/trust#VerifiedCredential"/>
+            </owl:Restriction>
+        </owl:equivalentClass>
+    </owl:Class>
+
+</rdf:RDF>
