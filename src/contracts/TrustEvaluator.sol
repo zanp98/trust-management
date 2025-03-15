@@ -6,7 +6,7 @@ contract TrustEvaluator {
 
     event TrustUpdated(address indexed entity, bool isTrusted);
 
-    // Set trust status (Normally this would come from the reasoner)
+    // Set trust status (Normally this would come from a reasoner)
     function setTrustStatus(address entity, bool isTrusted) public {
         trustedEntities[entity] = isTrusted;
         emit TrustUpdated(entity, isTrusted);

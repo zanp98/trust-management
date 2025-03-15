@@ -31,4 +31,8 @@
         </owl:equivalentClass>
     </owl:Class>
 
+    <!-- Add Alice as a Person with a Verified Credential -->
+<!--     <trust:Person rdf:about="http://example.org/trust#Alice">
+        <trust:hasCredential rdf:resource="http://example.org/trust#VerifiedCredential"/>
+    </trust:Person> -->
 </rdf:RDF>
