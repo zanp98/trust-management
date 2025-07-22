@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.17;
-
+// TODO:  try DIDKit
 import "lib/ethr-did-registry/contracts/EthereumDIDRegistry.sol";
 
 contract EthDIDTrust {

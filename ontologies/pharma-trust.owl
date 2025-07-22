@@ -1,0 +1,199 @@
+<?xml version="1.0"?>
+<rdf:RDF
+    xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"
+    xmlns:rdfs="http://www.w3.org/2000/01/rdf-schema#"
+    xmlns:owl="http://www.w3.org/2002/07/owl#"
+    xmlns:xsd="http://www.w3.org/2001/XMLSchema#"
+    xmlns:trust="http://example.org/trust#">
+
+    <owl:Ontology rdf:about="http://example.org/trust"/>
+
+    <!-- Supply Chain Actor Classes -->
+    <owl:Class rdf:about="http://example.org/trust#Actor"/>
+    <owl:Class rdf:about="http://example.org/trust#Manufacturer">
+        <rdfs:subClassOf rdf:resource="http://example.org/trust#Actor"/>
+    </owl:Class>
+    <owl:Class rdf:about="http://example.org/trust#Distributor">
+        <rdfs:subClassOf rdf:resource="http://example.org/trust#Actor"/>
+    </owl:Class>
+    <owl:Class rdf:about="http://example.org/trust#Pharmacy">
+        <rdfs:subClassOf rdf:resource="http://example.org/trust#Actor"/>
+    </owl:Class>
+    <owl:Class rdf:about="http://example.org/trust#Regulator">
+        <rdfs:subClassOf rdf:resource="http://example.org/trust#Actor"/>
+    </owl:Class>
+    <owl:Class rdf:about="http://example.org/trust#Transporter">
+        <rdfs:subClassOf rdf:resource="http://example.org/trust#Actor"/>
+    </owl:Class>
+    <owl:Class rdf:about="http://example.org/trust#RegulatoryAuthority">
+        <rdfs:subClassOf rdf:resource="http://example.org/trust#Actor"/>
+    </owl:Class>
+
+    <!-- Trust Attributes -->
+    <owl:DatatypeProperty rdf:about="http://example.org/trust#hasGMP">
+        <rdfs:domain rdf:resource="http://example.org/trust#Manufacturer"/>
+        <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#boolean"/>
+    </owl:DatatypeProperty>
+
+    <owl:DatatypeProperty rdf:about="http://example.org/trust#hasAuditScore">
+        <rdfs:domain rdf:resource="http://example.org/trust#Actor"/>
+        <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#float"/>
+    </owl:DatatypeProperty>
+
+    <owl:DatatypeProperty rdf:about="http://example.org/trust#hasLicense">
+        <rdfs:domain rdf:resource="http://example.org/trust#Actor"/>
+        <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#boolean"/>
+    </owl:DatatypeProperty>
+
+    <owl:DatatypeProperty rdf:about="http://example.org/trust#hasDeliveryDelayRate">
+        <rdfs:domain rdf:resource="http://example.org/trust#Distributor"/>
+        <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#float"/>
+    </owl:DatatypeProperty>
+
+    <owl:DatatypeProperty rdf:about="http://example.org/trust#hasPrescriptionComplianceRate">
+        <rdfs:domain rdf:resource="http://example.org/trust#Pharmacy"/>
+        <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#float"/>
+    </owl:DatatypeProperty>
+
+    <owl:DatatypeProperty rdf:about="http://example.org/trust#hasTempViolationRate">
+        <rdfs:domain rdf:resource="http://example.org/trust#Transporter"/>
+        <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#float"/>
+    </owl:DatatypeProperty>
+
+    <owl:DatatypeProperty rdf:about="http://example.org/trust#hasDeliveryPunctuality">
+        <rdfs:domain rdf:resource="http://example.org/trust#Transporter"/>
+        <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#float"/>
+    </owl:DatatypeProperty>
+
+    <owl:DatatypeProperty rdf:about="http://example.org/trust#hasIssuedCertifications">
+        <rdfs:domain rdf:resource="http://example.org/trust#RegulatoryAuthority"/>
+        <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#integer"/>
+    </owl:DatatypeProperty>
+
+    <owl:DatatypeProperty rdf:about="http://example.org/trust#hasJurisdictionLevel">
+        <rdfs:domain rdf:resource="http://example.org/trust#RegulatoryAuthority"/>
+        <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#string"/>
+    </owl:DatatypeProperty>
+
+    <!-- Trusted Manufacturer -->
+    <owl:Class rdf:about="http://example.org/trust#TrustedManufacturer">
+        <rdfs:subClassOf rdf:resource="http://example.org/trust#Manufacturer"/>
+        <owl:equivalentClass>
+            <owl:Class>
+                <owl:intersectionOf rdf:parseType="Collection">
+                    <owl:Restriction>
+                        <owl:onProperty rdf:resource="http://example.org/trust#hasGMP"/>
+                        <owl:hasValue rdf:datatype="http://www.w3.org/2001/XMLSchema#boolean">true</owl:hasValue>
+                    </owl:Restriction>
+                    <owl:Restriction>
+                        <owl:onProperty rdf:resource="http://example.org/trust#hasAuditScore"/>
+                        <owl:someValuesFrom rdf:resource="http://www.w3.org/2001/XMLSchema#float"/>
+                    </owl:Restriction>
+                </owl:intersectionOf>
+            </owl:Class>
+        </owl:equivalentClass>
+    </owl:Class>
+
+    <!-- Trusted Distributor -->
+    <owl:Class rdf:about="http://example.org/trust#TrustedDistributor">
+        <rdfs:subClassOf rdf:resource="http://example.org/trust#Distributor"/>
+        <owl:equivalentClass>
+            <owl:Class>
+                <owl:intersectionOf rdf:parseType="Collection">
+                    <owl:Restriction>
+                        <owl:onProperty rdf:resource="http://example.org/trust#hasLicense"/>
+                        <owl:hasValue rdf:datatype="http://www.w3.org/2001/XMLSchema#boolean">true</owl:hasValue>
+                    </owl:Restriction>
+                    <owl:Restriction>
+                        <owl:onProperty rdf:resource="http://example.org/trust#hasDeliveryDelayRate"/>
+                        <owl:someValuesFrom rdf:resource="http://www.w3.org/2001/XMLSchema#float"/>
+                    </owl:Restriction>
+                </owl:intersectionOf>
+            </owl:Class>
+        </owl:equivalentClass>
+    </owl:Class>
+
+    <!-- Trusted Pharmacy -->
+    <owl:Class rdf:about="http://example.org/trust#TrustedPharmacy">
+        <rdfs:subClassOf rdf:resource="http://example.org/trust#Pharmacy"/>
+        <owl:equivalentClass>
+            <owl:Class>
+                <owl:intersectionOf rdf:parseType="Collection">
+                    <owl:Restriction>
+                        <owl:onProperty rdf:resource="http://example.org/trust#hasLicense"/>
+                        <owl:hasValue rdf:datatype="http://www.w3.org/2001/XMLSchema#boolean">true</owl:hasValue>
+                    </owl:Restriction>
+                    <owl:Restriction>
+                        <owl:onProperty rdf:resource="http://example.org/trust#hasPrescriptionComplianceRate"/>
+                        <owl:someValuesFrom rdf:resource="http://www.w3.org/2001/XMLSchema#float"/>
+                    </owl:Restriction>
+                </owl:intersectionOf>
+            </owl:Class>
+        </owl:equivalentClass>
+    </owl:Class>
+
+    <!-- TrustedTransporter Rule -->
+    <owl:Class rdf:about="http://example.org/trust#TrustedTransporter">
+        <rdfs:subClassOf rdf:resource="http://example.org/trust#Transporter"/>
+        <owl:equivalentClass>
+            <owl:Class>
+                <owl:intersectionOf rdf:parseType="Collection">
+                    <owl:Restriction>
+                        <owl:onProperty rdf:resource="http://example.org/trust#hasTempViolationRate"/>
+                        <owl:someValuesFrom rdf:resource="http://www.w3.org/2001/XMLSchema#float"/>
+                    </owl:Restriction>
+                    <owl:Restriction>
+                        <owl:onProperty rdf:resource="http://example.org/trust#hasDeliveryPunctuality"/>
+                        <owl:someValuesFrom rdf:resource="http://www.w3.org/2001/XMLSchema#float"/>
+                    </owl:Restriction>
+                </owl:intersectionOf>
+            </owl:Class>
+        </owl:equivalentClass>
+    </owl:Class>
+
+    <!-- TrustedRegulatoryAuthority Rule -->
+    <owl:Class rdf:about="http://example.org/trust#TrustedRegulatoryAuthority">
+        <rdfs:subClassOf rdf:resource="http://example.org/trust#RegulatoryAuthority"/>
+        <owl:equivalentClass>
+            <owl:Class>
+                <owl:intersectionOf rdf:parseType="Collection">
+                    <owl:Restriction>
+                        <owl:onProperty rdf:resource="http://example.org/trust#hasIssuedCertifications"/>
+                        <owl:someValuesFrom rdf:resource="http://www.w3.org/2001/XMLSchema#integer"/>
+                    </owl:Restriction>
+                    <owl:Restriction>
+                        <owl:onProperty rdf:resource="http://example.org/trust#hasJurisdictionLevel"/>
+                        <owl:someValuesFrom rdf:resource="http://www.w3.org/2001/XMLSchema#string"/>
+                    </owl:Restriction>
+                </owl:intersectionOf>
+            </owl:Class>
+        </owl:equivalentClass>
+    </owl:Class>
+
+    <!-- Sample Individuals -->
+    <trust:Manufacturer rdf:about="http://example.org/trust#Pfizer">
+        <trust:hasGMP rdf:datatype="http://www.w3.org/2001/XMLSchema#boolean">true</trust:hasGMP>
+        <trust:hasAuditScore rdf:datatype="http://www.w3.org/2001/XMLSchema#float">0.92</trust:hasAuditScore>
+    </trust:Manufacturer>
+
+    <trust:Distributor rdf:about="http://example.org/trust#EuroLogistics">
+        <trust:hasLicense rdf:datatype="http://www.w3.org/2001/XMLSchema#boolean">true</trust:hasLicense>
+        <trust:hasDeliveryDelayRate rdf:datatype="http://www.w3.org/2001/XMLSchema#float">0.07</trust:hasDeliveryDelayRate>
+    </trust:Distributor>
+
+    <trust:Pharmacy rdf:about="http://example.org/trust#MediPlus">
+        <trust:hasLicense rdf:datatype="http://www.w3.org/2001/XMLSchema#boolean">true</trust:hasLicense>
+        <trust:hasPrescriptionComplianceRate rdf:datatype="http://www.w3.org/2001/XMLSchema#float">0.93</trust:hasPrescriptionComplianceRate>
+    </trust:Pharmacy>
+
+    <trust:Transporter rdf:about="http://example.org/trust#DHL">
+        <trust:hasTempViolationRate rdf:datatype="http://www.w3.org/2001/XMLSchema#float">0.02</trust:hasTempViolationRate>
+        <trust:hasDeliveryPunctuality rdf:datatype="http://www.w3.org/2001/XMLSchema#float">0.95</trust:hasDeliveryPunctuality>
+    </trust:Transporter>
+
+    <trust:RegulatoryAuthority rdf:about="http://example.org/trust#EMA">
+        <trust:hasIssuedCertifications rdf:datatype="http://www.w3.org/2001/XMLSchema#integer">32</trust:hasIssuedCertifications>
+        <trust:hasJurisdictionLevel rdf:datatype="http://www.w3.org/2001/XMLSchema#string">global</trust:hasJurisdictionLevel>
+    </trust:RegulatoryAuthority>
+
+</rdf:RDF>
