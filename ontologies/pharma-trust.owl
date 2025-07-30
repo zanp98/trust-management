@@ -176,6 +176,11 @@
         <trust:hasAuditScore rdf:datatype="http://www.w3.org/2001/XMLSchema#float">0.92</trust:hasAuditScore>
     </trust:Manufacturer>
 
+    <trust:Manufacturer rdf:about="http://example.org/trust#Novartis">
+        <trust:hasGMP rdf:datatype="http://www.w3.org/2001/XMLSchema#boolean">true</trust:hasGMP>
+        <trust:hasAuditScore rdf:datatype="http://www.w3.org/2001/XMLSchema#float">0.82</trust:hasAuditScore>
+    </trust:Manufacturer>
+
     <trust:Distributor rdf:about="http://example.org/trust#EuroLogistics">
         <trust:hasLicense rdf:datatype="http://www.w3.org/2001/XMLSchema#boolean">true</trust:hasLicense>
         <trust:hasDeliveryDelayRate rdf:datatype="http://www.w3.org/2001/XMLSchema#float">0.07</trust:hasDeliveryDelayRate>

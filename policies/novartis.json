@@ -1,0 +1,14 @@
+{
+  "actor": "http://example.org/trust#Novartis",
+  "trusts": {
+    "Transporter": {
+      "hasDeliveryPunctuality": { "gte": 0.85 }
+    },
+    "Pharmacy": {
+      "hasPrescriptionComplianceRate": { "gte": 0.9 }
+    },
+    "Manufacturer": {
+      "hasGMP": true
+    }
+  }
+}
