@@ -1,7 +1,7 @@
 Evaluator,Entity,Trusted
-Novartis,MediPlus,True
 Novartis,DHL,True
+Novartis,MediPlus,True
 Novartis,Pfizer,True
-Pfizer,Novartis,False
-Pfizer,EuroLogistics,True
 Pfizer,DHL,False
+Pfizer,EuroLogistics,True
+Pfizer,Novartis,False
