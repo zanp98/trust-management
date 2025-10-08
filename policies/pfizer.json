@@ -1,5 +1,12 @@
 {
   "actor": "http://example.org/trust#Pfizer",
+  "prob_threshold": 0.75,
+  "_weights": {
+    "hasDeliveryPunctuality": 0.7,
+    "hasTempViolationRate": 0.3,
+    "hasAuditScore": 0.6,
+    "hasLicense": 0.4
+  },
   "trusts": {
     "Transporter": {
       "hasDeliveryPunctuality": { "gte": 0.99 },
