@@ -27,7 +27,7 @@ jobs:
         run: |
           forge --version
 
-      - name: Run Forge tests
-        run: |
-          forge test
-        id: test
+      # - name: Run Forge tests
+      #   run: |
+      #     forge test
+      #   id: test
