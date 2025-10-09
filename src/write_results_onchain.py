@@ -1,36 +1,14 @@
+import json
 import os
 from pathlib import Path
 from typing import Iterable, List
-
 import pandas as pd
 from dotenv import load_dotenv
 from web3 import Web3
 from web3.contract import Contract
 
-TRUST_GRAPH_ABI = [
-    {
-        "inputs": [
-            {"internalType": "bytes32", "name": "evaluator", "type": "bytes32"},
-            {"internalType": "bytes32", "name": "entity", "type": "bytes32"},
-            {"internalType": "bool", "name": "trusted", "type": "bool"},
-        ],
-        "name": "setTrustDecision",
-        "outputs": [],
-        "stateMutability": "nonpayable",
-        "type": "function",
-    },
-    {
-        "inputs": [
-            {"internalType": "bytes32[]", "name": "evaluators", "type": "bytes32[]"},
-            {"internalType": "bytes32[]", "name": "entities", "type": "bytes32[]"},
-            {"internalType": "bool[]", "name": "decisions", "type": "bool[]"},
-        ],
-        "name": "batchSetTrustDecisions",
-        "outputs": [],
-        "stateMutability": "nonpayable",
-        "type": "function",
-    },
-]
+TRUST_GRAPH_ABI = json.load(open("out/TrustGraph.sol/TrustGraph.json"))["abi"]
+
 
 
 def _load_env() -> dict:
@@ -123,7 +101,7 @@ def main():
     )
 
     signed = account.sign_transaction(tx)
-    tx_hash = w3.eth.send_raw_transaction(signed.rawTransaction)
+    tx_hash = w3.eth.send_raw_transaction(signed.raw_transaction)
     receipt = w3.eth.wait_for_transaction_receipt(tx_hash)
 
     print("Submitted trust results to blockchain")

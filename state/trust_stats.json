@@ -1,0 +1,30 @@
+{
+  "http://example.org/trust#Novartis||http://example.org/trust#Pfizer||hasGMP": {
+    "alpha": 10.0,
+    "beta": 1.0
+  },
+  "http://example.org/trust#Novartis||http://example.org/trust#MediPlus||hasPrescriptionComplianceRate": {
+    "alpha": 3.700000000000003,
+    "beta": 7.299999999999997
+  },
+  "http://example.org/trust#Novartis||http://example.org/trust#DHL||hasDeliveryPunctuality": {
+    "alpha": 6.999999999999997,
+    "beta": 4.000000000000002
+  },
+  "http://example.org/trust#Pfizer||http://example.org/trust#Novartis||hasAuditScore": {
+    "alpha": 1.0,
+    "beta": 10.0
+  },
+  "http://example.org/trust#Pfizer||http://example.org/trust#EuroLogistics||hasLicense": {
+    "alpha": 10.0,
+    "beta": 1.0
+  },
+  "http://example.org/trust#Pfizer||http://example.org/trust#DHL||hasDeliveryPunctuality": {
+    "alpha": 1.0,
+    "beta": 10.0
+  },
+  "http://example.org/trust#Pfizer||http://example.org/trust#DHL||hasTempViolationRate": {
+    "alpha": 6.3999999999999995,
+    "beta": 4.6
+  }
+}

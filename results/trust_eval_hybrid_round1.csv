@@ -1,0 +1,7 @@
+Evaluator,Entity,Type,Deterministic,ProbScore,ProbDecision,CombinedDecision
+Novartis,Pfizer,Manufacturer,True,0.9091,True,True
+Novartis,MediPlus,Pharmacy,True,0.3364,False,True
+Novartis,DHL,Transporter,True,0.6364,False,True
+Pfizer,Novartis,Manufacturer,False,0.0909,False,False
+Pfizer,EuroLogistics,Distributor,True,0.9091,True,True
+Pfizer,DHL,Transporter,False,0.2382,True,True
