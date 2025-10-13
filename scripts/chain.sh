@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-echo "🚀 Zagon anvil (lokalna veriga)…"
-echo "   Uporabi drug terminal za ostale ukaze (deploy/eval/publish)."
+echo "🚀 Starting anvil (local chain)…"
+echo "   Use another terminal for deploy/eval/publish commands."
 anvil

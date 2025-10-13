@@ -1,14 +1,16 @@
+import argparse
 import json
 import os
 from pathlib import Path
-from typing import Iterable, List
+
 import pandas as pd
 from dotenv import load_dotenv
 from web3 import Web3
 from web3.contract import Contract
 
-TRUST_GRAPH_ABI = json.load(open("out/TrustGraph.sol/TrustGraph.json"))["abi"]
+from identity_utils import IdentityHasher, IdentityError
 
+TRUST_GRAPH_ABI = json.load(open("out/TrustGraph.sol/TrustGraph.json"))["abi"]
 
 
 def _load_env() -> dict:
@@ -18,37 +20,25 @@ def _load_env() -> dict:
         "contract_address": os.getenv("CONTRACT_ADDRESS"),
         "private_key": os.getenv("PRIVATE_KEY"),
         "namespace": os.getenv("NAMESPACE", "http://example.org/trust#"),
+        "identity_mode": os.getenv("IDENTITY_MODE", "URI"),
+        "did_network": os.getenv("DID_ETHR_NETWORK", ""),
+        "allow_did_fallback": os.getenv("DID_ALLOW_NAMES_FALLBACK", "true"),
         "csv_path": os.getenv("TRUST_RESULTS_CSV", "results/trust_eval_hybrid_round1.csv"),
     }
-    missing = [k for k, v in cfg.items() if v in (None, "") and k != "namespace"]
+    missing = [
+        key
+        for key, value in cfg.items()
+        if value in (None, "")
+        and key
+        not in {
+            "namespace",
+            "did_network",
+            "allow_did_fallback",
+        }
+    ]
     if missing:
         raise EnvironmentError(f"Missing required environment variables: {', '.join(missing)}")
     return cfg
-
-
-def _normalise_namespace(namespace: str) -> str:
-    namespace = namespace or ""
-    if not namespace:
-        return ""
-    return namespace.rstrip("#/")
-
-
-def _to_uri(label: str, namespace: str) -> str:
-    if label.startswith("http://") or label.startswith("https://"):
-        return label
-    base = _normalise_namespace(namespace)
-    if not base:
-        return label
-    return f"{base}#{label}"
-
-
-def _hash_identifiers(values: Iterable[str], namespace: str) -> List[bytes]:
-    w3 = Web3()
-    hashed = []
-    for val in values:
-        uri = _to_uri(str(val), namespace)
-        hashed.append(bytes(w3.keccak(text=uri)))
-    return hashed
 
 
 def _load_contract(w3: Web3, address: str) -> Contract:
@@ -66,8 +56,27 @@ def _to_bool(value) -> bool:
     return bool(value)
 
 
-def main():
+def _parse_cli_args(argv=None):
+    parser = argparse.ArgumentParser(description="Publish trust evaluation results on-chain.")
+    parser.add_argument(
+        "--csv",
+        dest="csv_path",
+        help="Override the CSV file path (defaults to TRUST_RESULTS_CSV from .env).",
+    )
+    parser.add_argument(
+        "--debug",
+        action="store_true",
+        help="Enable verbose logging for identity normalisation and transaction details.",
+    )
+    return parser.parse_args(argv)
+
+
+def main(argv=None):
+    args = _parse_cli_args(argv)
     cfg = _load_env()
+    if args.csv_path:
+        cfg["csv_path"] = args.csv_path
+
     csv_path = Path(cfg["csv_path"])
     if not csv_path.exists():
         raise FileNotFoundError(f"CSV file not found: {csv_path}")
@@ -84,9 +93,25 @@ def main():
     account = w3.eth.account.from_key(cfg["private_key"])
     contract = _load_contract(w3, cfg["contract_address"])
 
-    evaluators = _hash_identifiers(df["Evaluator"], cfg["namespace"])
-    entities = _hash_identifiers(df["Entity"], cfg["namespace"])
+    allow_fallback = _to_bool(cfg["allow_did_fallback"])
+    hasher = IdentityHasher(
+        identity_mode=cfg["identity_mode"],
+        namespace=cfg["namespace"],
+        did_network=cfg["did_network"],
+        allow_namespace_fallback=allow_fallback,
+        debug=args.debug,
+    )
+
+    try:
+        evaluators = hasher.hash_many(df["Evaluator"])
+        entities = hasher.hash_many(df["Entity"])
+    except IdentityError as err:
+        raise ValueError(f"Failed to normalise identifiers: {err}") from err
+
     decisions = [_to_bool(val) for val in df["CombinedDecision"]]
+
+    if args.debug:
+        print("[publish] Prepared payload size:", len(decisions))
 
     tx = contract.functions.batchSetTrustDecisions(
         evaluators,
@@ -100,8 +125,13 @@ def main():
         }
     )
 
+    if args.debug:
+        print("[publish] Transaction preview:", tx)
+
     signed = account.sign_transaction(tx)
     tx_hash = w3.eth.send_raw_transaction(signed.raw_transaction)
+    if args.debug:
+        print(f"[publish] Submitted tx hash: {tx_hash.hex()}")
     receipt = w3.eth.wait_for_transaction_receipt(tx_hash)
 
     print("Submitted trust results to blockchain")

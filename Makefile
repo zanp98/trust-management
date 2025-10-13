@@ -1,8 +1,9 @@
 # -------- CONFIG --------
 SHELL := /bin/bash
 ENV_FILE := .env
+ARGS ?=
 
-# Python virtualenv (opcijsko)
+# Python interpreter (override via `make PY=python3`)
 PY := python
 
 # Scripts
@@ -17,17 +18,17 @@ S_DEMO    := scripts/run_demo.sh
 
 help:
 	@echo "Make targets:"
-	@echo "  make env       # ustvari .env iz .env.example (če ne obstaja)"
-	@echo "  make chain     # zžene anvil (lokalni node)"
-	@echo "  make deploy    # deploya TrustGraph in zapiše naslov v .env"
-	@echo "  make eval      # izvede hibridno evalvacijo (round0/round1) in shrani CSV"
-	@echo "  make publish   # prebere CSV in zapiše rezultate na verigo (batch)"
-	@echo "  make check     # primer branja iz verige (npr. Pfizer → DHL)"
+	@echo "  make env       # create .env from .env.example if needed"
+	@echo "  make chain     # start anvil (local node)"
+	@echo "  make deploy    # deploy TrustGraph and persist the address into .env"
+	@echo "  make eval      # run the hybrid evaluation and export CSVs"
+	@echo "  make publish   # read CSV and publish trust results on-chain"
+	@echo "  make check     # query a sample trust decision from the chain"
 	@echo "  make demo      # chain → deploy → eval → publish → check"
-	@echo "  make clean     # počisti rezultate/loge (ne briše pogodbe)"
+	@echo "  make clean     # remove generated CSV/log files"
 
 env:
-	@if [ ! -f $(ENV_FILE) ]; then cp .env.example $(ENV_FILE); echo "✅ Ustvarjen .env (iz .env.example)"; else echo "ℹ️  .env že obstaja"; fi
+	@if [ ! -f $(ENV_FILE) ]; then cp .env.example $(ENV_FILE); echo "✅ Created .env (from .env.example)"; else echo "ℹ️  .env already exists"; fi
 
 chain:
 	@bash $(S_CHAIN)
@@ -35,21 +36,20 @@ chain:
 deploy:
 	@bash $(S_DEPLOY)
 
-# OPOMBA:
-#  - Če nimaš src/run_hybrid_eval.py, zamenjaj v scripts/eval.sh klic za tvoj obstoječi eval skript
-#    (ti ga že imaš v glavnem fajlu, ki generira CSV).
+# Note:
+#  - If you do not have src/run_hybrid_eval.py, swap the invocation in scripts/eval.sh with your custom evaluator.
 eval:
-	@bash $(S_EVAL)
+	@bash $(S_EVAL) $(ARGS)
 
 publish:
-	@bash $(S_PUBLISH)
+	@bash $(S_PUBLISH) $(ARGS)
 
 check:
-	@bash $(S_CHECK)
+	@bash $(S_CHECK) $(ARGS)
 
 demo:
 	@bash $(S_DEMO)
 
 clean:
 	@rm -rf results/*.csv logs/*.json || true
-	@echo "🧹 Počiščeno (results/, logs/)"
+	@echo "🧹 Cleaned (results/, logs/)"
