@@ -163,3 +163,16 @@ The smoke test hits the Fuseki `SELECT` endpoint; ensure the dataset is running 
 - `tests/test_trustkb.py` – Fuseki smoke test.
 
 Feel free to adapt the CLI into APIs or additional automation as your workflow evolves.
+
+---
+
+## System overview
+
+1. **Data sources** – The pharmaceutical knowledge base lives in Fuseki (`trustkb` dataset) and is seeded from `ontologies/pharma-trust.owl`. The CLI under `src/trustkb/` adds or amends triples that describe manufacturers, logistics partners, and quality metrics.
+2. **Policies** – Trust requirements are maintained as JSON files in `policies/`. Each policy defines the evaluator, the actor types it vets, and property thresholds/weights used by the hybrid algorithm.
+3. **Hybrid evaluation** – `make eval` (→ `scripts/eval.sh`) calls `src/run_hybrid_eval.py`, which loads the ontology plus every policy. The extended evaluator (`src/trust_evaluator_ext.py`) combines deterministic rule checking with a probabilistic Beta-EWMA model backed by `state/trust_stats.json`. It writes one or more CSVs under `results/` and records the ontology/policy hashes in `logs/run-*.json`.
+4. **Publishing on-chain** – After deployment (`make deploy` → `scripts/deploy.sh`), `make publish` feeds the latest CSV to `src/write_results_onchain.py`. Identifiers are canonicalised and keccak-hashed via `IdentityHasher` (`src/identity_utils.py`), then `batchSetTrustDecisions` persists the decisions to the `TrustGraph` contract.
+5. **Querying & monitoring** – `make check` (→ `scripts/check.sh`) uses `src/read_trustgraph.py` to normalise identities in the same way and query the contract. Contract state holds the authoritative decision bits, while the CSVs/logs on disk remain the auditable trail.
+6. **Optional credentials** – When `VC_ENABLED=true`, `make eval` also issues verifiable credentials (see `src/issue_vc.py`), and `make publish` enforces them before uploading results. Disable via `.env` while backfilling legacy data.
+
+Together, these steps provide: (a) a shared ontology and policy store for trust criteria, (b) a repeatable evaluation workflow with explainable artefacts on disk, and (c) an immutable on-chain registry of the resulting trust decisions.
