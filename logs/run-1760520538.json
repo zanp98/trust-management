@@ -1,0 +1,9 @@
+{
+  "timestamp": 1760520538,
+  "ontologyHash": "0x11a2417a8c0436ad2674951838fe8986a3d72be8d89d11e785eec4221bfe6b0d",
+  "policyHashes": {
+    "novartis.json": "0x0e74dad7e273466084d2b23d7b4673325f4d98bb6907e9c96b8d4d2e54cd136d",
+    "pfizer.json": "0x497629ff74f30923f818f1ad84bebe8d179339335580c1749c0c8f796b0e70a9"
+  },
+  "env": {}
+}

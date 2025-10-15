@@ -1,4 +1,8 @@
-rdflib
+SPARQLWrapper==2.0.0
+rdflib==7.0.0
+python-dotenv==1.0.1
+click==8.1.7
+requests>=2.31.0
 pandas
-python-dotenv
 web3
+pytest>=7.4.0

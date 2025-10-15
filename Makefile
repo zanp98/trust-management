@@ -14,7 +14,7 @@ S_PUBLISH := scripts/publish.sh
 S_CHECK   := scripts/check.sh
 S_DEMO    := scripts/run_demo.sh
 
-.PHONY: help env chain deploy eval publish check demo clean
+.PHONY: help env chain deploy eval publish check demo clean install run add-mf link rm hash test
 
 help:
 	@echo "Make targets:"
@@ -53,3 +53,24 @@ demo:
 clean:
 	@rm -rf results/*.csv logs/*.json || true
 	@echo "🧹 Cleaned (results/, logs/)"
+
+install:
+	python -m venv .venv && . .venv/bin/activate && pip install -r requirements.txt
+
+run:
+	. .venv/bin/activate && python -m src.trustkb.cli --help
+
+add-mf:
+	. .venv/bin/activate && python -m src.trustkb.cli add-manufacturer Pfizer --score 0.95
+
+link:
+	. .venv/bin/activate && python -m src.trustkb.cli trust Pfizer McKesson
+
+rm:
+	. .venv/bin/activate && python -m src.trustkb.cli rm Pfizer
+
+hash:
+	. .venv/bin/activate && python -m src.trustkb.cli graph-hash
+
+test:
+	. .venv/bin/activate && pytest -q
