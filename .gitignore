@@ -16,3 +16,6 @@ docs/
 # Dotenv file
 .env
 .DS_
+
+/tests/simulations/__pycache__
+/tests/__pycache__

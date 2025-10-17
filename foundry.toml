@@ -1,5 +1,6 @@
 [profile.default]
-src = "src"
+src = "chain/contracts"
+test = "tests/foundry"
 out = "out"
 libs = ["lib"]
 
