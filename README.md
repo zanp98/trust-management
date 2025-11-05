@@ -76,9 +76,14 @@ Key scripts live under `scripts/` and can be run directly; they honour `--debug`
 
 Credential support remains available but is disabled by default (`VC_ENABLED=false`). To require signed trust evaluations:
 
-1. Provide an Ed25519 JWK (`VC_ISSUER_JWK`) and set `VC_ENABLED=true`.
-2. Re-run `make eval` to mint VCs alongside the CSV (`VCPath` column).
-3. Set `VC_REQUIRED=true` so `make publish` verifies each credential before writing on-chain.
+1. Provide or mint verifiable credentials (e.g., GDP compliance) for the relevant entities.
+2. Run the evaluator with `src/run_hybrid_eval.py --vc credentials/*.jsonld` (or repeated `--vc path` flags).  
+   This injects the boolean feature `hasGDPVC` (configurable via `--vc-property`) during rule evaluation and records both `VCPath` and `CredentialHash` columns in the output CSV.
+3. `src/write_results_onchain.py` inspects those columns automatically: if any credential hash is present it switches to `batchSetTrustDecisionsWithCredentials`, forwarding zero hashes for rows without VCs.
+4. The oracle + aggregator load the same VC bundle by reading `VC_PATHS` (comma-separated paths, default `credentials/issued`). The oracle sets `hasGDPVC` when a valid, non-revoked credential exists; the aggregator cross-checks submitted credential hashes against the local store before fulfilling.
+5. (Optional) Set `VC_REQUIRED=true` so `make publish` or downstream scripts refuse to send rows missing credentials.
+
+→ Detailed diagram of the VC/DID flow lives in `docs/vc_did_integration.md`.
 
 ---
 

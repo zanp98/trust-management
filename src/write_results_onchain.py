@@ -8,7 +8,12 @@ from dotenv import load_dotenv
 from web3 import Web3
 from web3.contract import Contract
 
-from identity_utils import IdentityHasher, IdentityError
+from identity_utils import (
+    IdentityHasher,
+    IdentityError,
+    load_vc,
+    credential_hash,
+)
 
 TRUST_GRAPH_ABI = json.load(open("out/TrustGraph.sol/TrustGraph.json"))["abi"]
 
@@ -71,6 +76,46 @@ def _parse_cli_args(argv=None):
     return parser.parse_args(argv)
 
 
+def _hex_to_bytes32(value: str) -> bytes:
+    data = value.strip()
+    if not data:
+        return bytes(32)
+    if data.startswith(("0x", "0X")):
+        data = data[2:]
+    raw = bytes.fromhex(data)
+    if len(raw) != 32:
+        raise ValueError(f"Credential hash must be 32 bytes (got {len(raw)} bytes)")
+    return raw
+
+
+def _extract_credential_hashes(df: pd.DataFrame) -> tuple[bool, list[bytes]]:
+    use_credentials = False
+    hashes: list[bytes] = []
+    vc_cache: dict[str, bytes] = {}
+    for _, row in df.iterrows():
+        hash_hex = ""
+        if "CredentialHash" in df.columns:
+            value = row["CredentialHash"]
+            if isinstance(value, str):
+                hash_hex = value.strip()
+            elif pd.notna(value):
+                hash_hex = str(value).strip()
+        if not hash_hex and "VCPath" in df.columns:
+            raw_path = row["VCPath"]
+            if isinstance(raw_path, str) and raw_path.strip():
+                canon_path = raw_path.strip()
+                if canon_path not in vc_cache:
+                    descriptor = load_vc(canon_path)
+                    vc_cache[canon_path] = credential_hash(descriptor)
+                hash_hex = "0x" + vc_cache[canon_path].hex()
+        if hash_hex:
+            use_credentials = True
+            hashes.append(_hex_to_bytes32(hash_hex))
+        else:
+            hashes.append(bytes(32))
+    return use_credentials, hashes
+
+
 def main(argv=None):
     args = _parse_cli_args(argv)
     cfg = _load_env()
@@ -113,11 +158,23 @@ def main(argv=None):
     if args.debug:
         print("[publish] Prepared payload size:", len(decisions))
 
-    tx = contract.functions.batchSetTrustDecisions(
-        evaluators,
-        entities,
-        decisions,
-    ).build_transaction(
+    use_credentials, credential_hashes = _extract_credential_hashes(df)
+
+    if use_credentials:
+        fn = contract.functions.batchSetTrustDecisionsWithCredentials(
+            evaluators,
+            entities,
+            decisions,
+            credential_hashes,
+        )
+    else:
+        fn = contract.functions.batchSetTrustDecisions(
+            evaluators,
+            entities,
+            decisions,
+        )
+
+    tx = fn.build_transaction(
         {
             "from": account.address,
             "nonce": w3.eth.get_transaction_count(account.address),

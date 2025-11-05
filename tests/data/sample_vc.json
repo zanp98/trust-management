@@ -1,0 +1,14 @@
+{
+  "@context": ["https://www.w3.org/2018/credentials/v1"],
+  "id": "urn:uuid:11111111-2222-3333-4444-555555555555",
+  "type": ["VerifiableCredential", "GDPComplianceCredential"],
+  "issuer": "did:example:issuer",
+  "issuanceDate": "2025-01-01T00:00:00Z",
+  "credentialSubject": {
+    "id": "http://example.org/trust#DHL",
+    "gdpCompliant": true
+  },
+  "credentialStatus": {
+    "revoked": true
+  }
+}

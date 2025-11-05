@@ -16,13 +16,14 @@ import dataclasses
 import json
 import logging
 import os
-from typing import Dict, List, Sequence
+from typing import Any, Dict, List, Sequence
 
 from aiohttp import web
 from eth_account.messages import encode_defunct
 from web3 import Web3
 
 from oracle.common.report import AggregatedReport, OracleReport, SignedOracleReport
+from identity_utils import IdentityHasher, gather_vc_facts
 
 LOG = logging.getLogger("oracle.aggregator")
 
@@ -45,6 +46,20 @@ class AggregatorConfig:
     allowed_nodes: Sequence[str] = dataclasses.field(default_factory=list)
     quorum: int = 3
     poll_interval: float = 2.0
+    identity_mode: str = "URI"
+    namespace: str = "http://example.org/trust#"
+    did_network: str = ""
+    allow_namespace_fallback: bool = True
+    vc_paths: Sequence[str] = dataclasses.field(default_factory=list)
+    vc_property: str = "hasGDPVC"
+
+
+class AggregationError(Exception):
+    """Raised when reports cannot be aggregated due to validation issues."""
+
+
+class CredentialValidationError(AggregationError):
+    """Raised when VC hashes mismatch or are revoked."""
 
 
 class AggregatorService:
@@ -64,6 +79,19 @@ class AggregatorService:
         self._allowed_nodes = {addr.lower() for addr in config.allowed_nodes}
         self._app = web.Application()
         self._app.add_routes([web.post("/reports", self._handle_report)])
+        self._identity_hasher = IdentityHasher(
+            identity_mode=config.identity_mode,
+            namespace=config.namespace,
+            did_network=config.did_network,
+            allow_namespace_fallback=config.allow_namespace_fallback,
+        )
+        _, vc_metadata = gather_vc_facts(config.vc_paths, self._identity_hasher, config.vc_property)
+        self._vc_lookup: Dict[bytes, Dict[str, Any]] = {}
+        for canonical, info in vc_metadata.items():
+            subject_hash = bytes(self._w3.keccak(text=canonical))
+            self._vc_lookup[subject_hash] = info
+        if self._vc_lookup:
+            LOG.info("loaded %d verifiable credential(s) for validation", len(self._vc_lookup))
 
     async def run(self) -> None:
         LOG.info("aggregator service started")
@@ -110,21 +138,33 @@ class AggregatorService:
         ]
         for request_id in ready:
             reports = self._pending.pop(request_id)
-            aggregated = self.aggregate_reports(reports)
+            try:
+                aggregated = self.aggregate_reports(reports)
+            except CredentialValidationError as err:
+                LOG.warning("rejecting request %s due to credential validation failure: %s", request_id.hex(), err)
+                continue
+            except AggregationError as err:
+                LOG.warning("unable to aggregate reports for %s: %s", request_id.hex(), err)
+                continue
             await self.publish_report(request_id, aggregated)
 
     def aggregate_reports(self, reports: List[SignedOracleReport]) -> AggregatedReport:
         if not reports:
-            raise ValueError("no reports to aggregate")
+            raise AggregationError("no reports to aggregate")
 
         subjects = {r.report.subject for r in reports}
         if len(subjects) != 1:
-            raise ValueError("mismatched subjects in reports")
+            raise AggregationError("mismatched subjects in reports")
 
         policy_hashes = {r.report.policy_hash for r in reports}
         if len(policy_hashes) != 1:
-            raise ValueError("mismatched policy hashes in reports")
+            raise AggregationError("mismatched policy hashes in reports")
         policy_hash = policy_hashes.pop()
+
+        credential_hashes = {r.report.credential_hash for r in reports}
+        if len(credential_hashes) > 1:
+            raise CredentialValidationError("mismatched credential hashes in reports")
+        credential_hash = credential_hashes.pop() if credential_hashes else bytes(32)
 
         # Majority vote for boolean decision
         positive = sum(1 for r in reports if r.report.decision)
@@ -157,7 +197,14 @@ class AggregatorService:
             flags=flags,
             as_of=as_of,
             policy_hash=policy_hash,
+            credential_hash=credential_hash,
         )
+        expected = self._vc_lookup.get(aggregated_report.subject)
+        if expected:
+            if expected.get("hash_bytes") != credential_hash:
+                raise CredentialValidationError("aggregated credential hash does not match local VC store")
+            if expected.get("revoked", False):
+                raise CredentialValidationError("aggregated credential hash corresponds to a revoked VC")
         node_ids = [r.node_id for r in reports]
         signatures = [r.signature for r in reports]
         return AggregatedReport(report=aggregated_report, node_ids=node_ids, signatures=signatures)
@@ -208,6 +255,8 @@ def main() -> None:
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
     allowed = os.environ.get("ALLOWED_NODE_ADDRESSES", "")
     allowed_nodes = [addr.strip().lower() for addr in allowed.split(",") if addr.strip()]
+    vc_paths_env = os.environ.get("VC_PATHS", "")
+    vc_paths = [entry.strip() for entry in vc_paths_env.split(",") if entry.strip()]
     cfg = AggregatorConfig(
         rpc_url=os.environ["RPC_URL"],
         contract_address=os.environ["CONTRACT_ADDRESS"],
@@ -216,6 +265,12 @@ def main() -> None:
         port=int(os.environ.get("AGGREGATOR_PORT", "8080")),
         allowed_nodes=allowed_nodes,
         quorum=int(os.environ.get("AGGREGATOR_QUORUM", "3")),
+        identity_mode=os.environ.get("IDENTITY_MODE", "URI"),
+        namespace=os.environ.get("NAMESPACE", "http://example.org/trust#"),
+        did_network=os.environ.get("DID_ETHR_NETWORK", ""),
+        allow_namespace_fallback=os.environ.get("DID_ALLOW_NAMES_FALLBACK", "true").lower() != "false",
+        vc_paths=vc_paths,
+        vc_property=os.environ.get("VC_PROPERTY", "hasGDPVC"),
     )
     service = AggregatorService(cfg)
     asyncio.run(service.run())

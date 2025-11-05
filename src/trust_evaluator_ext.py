@@ -101,6 +101,7 @@ class TrustEvaluatorExt:
         if owl_path:
             self.g.parse(owl_path, format="application/rdf+xml")
         self.stats = TrustStatsStore(stats_path, gamma=gamma, obs_scale=obs_scale)
+        self._extra_facts: Dict[str, Dict[str, float]] = {}
 
     def reload_from_path(self, path: str | None = None, rdf_format: str = "application/rdf+xml") -> None:
         src = path or self._owl_path
@@ -117,6 +118,10 @@ class TrustEvaluatorExt:
         payload = data if isinstance(data, str) else data.decode("utf-8")
         g.parse(data=payload, format=rdf_format)
         self.g = g
+        # Do not reset _owl_path; bytes-based reload is ephemeral.
+
+    def set_extra_facts(self, extras: Optional[Dict[str, Dict[str, float]]]) -> None:
+        self._extra_facts = extras or {}
 
     # ------ ontology utilities ------
     def get_all_entity_uris(self) -> List[str]:
@@ -133,6 +138,9 @@ class TrustEvaluatorExt:
         return None
 
     def get_value(self, entity_uri: str, prop: str) -> Optional[float]:
+        extra = self._extra_facts.get(entity_uri, {}).get(prop)
+        if extra is not None:
+            return extra
         val = self.g.value(subject=URIRef(entity_uri), predicate=TRUST[prop])
         if val is None:
             return None

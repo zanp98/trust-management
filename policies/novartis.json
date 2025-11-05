@@ -4,11 +4,13 @@
   "_weights": {
     "hasDeliveryPunctuality": 0.5,
     "hasPrescriptionComplianceRate": 0.3,
-    "hasGMP": 0.2
+    "hasGMP": 0.2,
+    "hasGDPVC": 0.4
   },
   "trusts": {
     "Transporter": {
-      "hasDeliveryPunctuality": { "gte": 0.85 }
+      "hasDeliveryPunctuality": { "gte": 0.85 },
+      "hasGDPVC": false
     },
     "Pharmacy": {
       "hasPrescriptionComplianceRate": { "gte": 0.9 }

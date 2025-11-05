@@ -20,9 +20,9 @@ import os
 import json
 import statistics
 import time
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
-from typing import List, Optional
+from typing import Any, Dict, List, Optional
 
 import aiohttp
 from eth_account.messages import encode_defunct
@@ -30,12 +30,13 @@ from web3 import Web3
 from web3.contract import Contract
 
 from oracle.common.report import OracleReport, SignedOracleReport
-from identity_utils import IdentityHasher
+from identity_utils import IdentityHasher, gather_vc_facts
 from trust_evaluator_ext import TrustEvaluatorExt
 
 FLAG_NO_DATA = 1 << 0
 FLAG_LOW_SCORE = 1 << 1
 FLAG_DISAGREEMENT = 1 << 2
+FLAG_VC_REVOKED = 1 << 3
 
 LOG = logging.getLogger("oracle.node")
 
@@ -69,6 +70,8 @@ class NodeConfig:
     fuseki_pass: str = ""
     fuseki_accept: str = "text/turtle"
     fuseki_format: str = "turtle"
+    vc_paths: List[str] = field(default_factory=list)
+    vc_property: str = "hasGDPVC"
 
 
 class OracleNode:
@@ -99,6 +102,11 @@ class OracleNode:
             owl_path=config.ontology_path,
             stats_path=config.stats_path,
         )
+        self._vc_property = config.vc_property
+        self._vc_extras, self._vc_metadata = gather_vc_facts(config.vc_paths, self._identity_hasher, self._vc_property)
+        self._evaluator.set_extra_facts(self._vc_extras)
+        if self._vc_metadata:
+            LOG.info("loaded %d verifiable credential(s) for enrichment", len(self._vc_metadata))
         self._fuseki_base_url = config.fuseki_base_url.rstrip("/")
         self._fuseki_dataset = config.fuseki_dataset.strip("/")
         self._fuseki_user = config.fuseki_user
@@ -165,6 +173,10 @@ class OracleNode:
         if score_basis_points < 7000:
             flags |= FLAG_LOW_SCORE
 
+        credential_hash, vc_revoked = self._credential_hash_for_rows(matching)
+        if vc_revoked:
+            flags |= FLAG_VC_REVOKED
+
         report = OracleReport(
             subject=subject,
             decision=decision,
@@ -172,6 +184,7 @@ class OracleNode:
             flags=flags,
             as_of=int(time.time()),
             policy_hash=self._policy_hash,
+            credential_hash=credential_hash,
         )
         LOG.info(
             "evaluated subject %s: decision=%s score=%s flags=0x%x", subject.hex(), decision, score_basis_points, flags
@@ -252,17 +265,35 @@ class OracleNode:
                     resp.raise_for_status()
                     payload = await resp.read()
                 await asyncio.to_thread(self._evaluator.reload_from_bytes, payload, self._fuseki_format)
+                self._evaluator.set_extra_facts(self._vc_extras)
                 LOG.debug("ontology refreshed from Fuseki %s", data_url)
                 return
             except Exception as exc:  # pylint: disable=broad-except
                 LOG.warning("failed to refresh ontology from Fuseki (%s); falling back: %s", data_url, exc)
         if self._config.ontology_path:
             await asyncio.to_thread(self._evaluator.reload_from_path, self._config.ontology_path)
+            self._evaluator.set_extra_facts(self._vc_extras)
             LOG.debug("ontology reloaded from local path %s", self._config.ontology_path)
+
+    def _credential_hash_for_rows(self, rows: List[dict]) -> tuple[bytes, bool]:
+        hash_bytes = bytes(32)
+        revoked_detected = False
+        for row in rows:
+            canonical_entity = self._identity_hasher.canonical(row["Entity"])
+            info = self._vc_metadata.get(canonical_entity)
+            if not info:
+                continue
+            hash_bytes = info.get("hash_bytes", hash_bytes)
+            revoked_detected = revoked_detected or bool(info.get("revoked", False))
+            if hash_bytes != bytes(32) and not revoked_detected:
+                break
+        return hash_bytes, revoked_detected
 
 
 def main() -> None:
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
+    vc_paths_env = os.environ.get("VC_PATHS", "")
+    vc_paths = [entry.strip() for entry in vc_paths_env.split(",") if entry.strip()]
     cfg = NodeConfig(
         rpc_url=os.environ["RPC_URL"],
         contract_address=os.environ["CONTRACT_ADDRESS"],
@@ -282,6 +313,8 @@ def main() -> None:
         fuseki_pass=os.environ.get("FUSEKI_PASS", ""),
         fuseki_accept=os.environ.get("FUSEKI_ACCEPT", "text/turtle"),
         fuseki_format=os.environ.get("FUSEKI_FORMAT", "turtle"),
+        vc_paths=vc_paths,
+        vc_property=os.environ.get("VC_PROPERTY", "hasGDPVC"),
     )
     node = OracleNode(cfg)
     asyncio.run(node.run())

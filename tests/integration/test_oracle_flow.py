@@ -18,7 +18,7 @@ from identity_utils import IdentityHasher
 
 load_dotenv()
 
-if os.getenv("RUN_ORACLE_FLOW_TEST", "0") != "1":
+if os.getenv("RUN_ORACLE_FLOW_TEST", "1") != "1":
     pytest.skip(
         "Set RUN_ORACLE_FLOW_TEST=1 to exercise the oracle + aggregator flow.",
         allow_module_level=True,

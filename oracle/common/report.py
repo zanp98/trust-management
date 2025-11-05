@@ -35,6 +35,7 @@ class OracleReport:
     flags: int
     as_of: int
     policy_hash: bytes  # 32-byte hash
+    credential_hash: bytes  # 32-byte hash
 
     def to_serialisable(self) -> Dict[str, Any]:
         return {
@@ -44,6 +45,7 @@ class OracleReport:
             "flags": int(self.flags),
             "as_of": int(self.as_of),
             "policy_hash": _encode_hex(self.policy_hash),
+            "credential_hash": _encode_hex(self.credential_hash),
         }
 
     def to_canonical_json(self) -> str:
@@ -59,6 +61,7 @@ class OracleReport:
             flags=int(data["flags"]),
             as_of=int(data["as_of"]),
             policy_hash=_decode_hex(data["policy_hash"], 32),
+            credential_hash=_decode_hex(data.get("credential_hash", "0x" + "00" * 32), 32),
         )
 
 
