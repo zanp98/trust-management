@@ -94,11 +94,29 @@ class TrustEvaluatorExt:
       - verjetnostni score z Beta-EWMA,
       - kombinirana odločitev (OR; možno spremeniti).
     """
-    def __init__(self, owl_path: str, stats_path: str = "state/trust_stats.json",
+    def __init__(self, owl_path: str | None, stats_path: str = "state/trust_stats.json",
                  gamma: float = 0.2, obs_scale: float = 9.0):
+        self._owl_path = owl_path
         self.g = Graph()
-        self.g.parse(owl_path, format="application/rdf+xml")
+        if owl_path:
+            self.g.parse(owl_path, format="application/rdf+xml")
         self.stats = TrustStatsStore(stats_path, gamma=gamma, obs_scale=obs_scale)
+
+    def reload_from_path(self, path: str | None = None, rdf_format: str = "application/rdf+xml") -> None:
+        src = path or self._owl_path
+        if not src:
+            raise ValueError("No ontology path provided for reload")
+        g = Graph()
+        g.parse(src, format=rdf_format)
+        self.g = g
+        if path:
+            self._owl_path = path
+
+    def reload_from_bytes(self, data: bytes | str, rdf_format: str = "turtle") -> None:
+        g = Graph()
+        payload = data if isinstance(data, str) else data.decode("utf-8")
+        g.parse(data=payload, format=rdf_format)
+        self.g = g
 
     # ------ ontology utilities ------
     def get_all_entity_uris(self) -> List[str]:

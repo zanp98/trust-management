@@ -6,3 +6,5 @@ requests>=2.31.0
 pandas
 web3
 pytest>=7.4.0
+aiohttp
+debugpy

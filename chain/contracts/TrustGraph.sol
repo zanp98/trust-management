@@ -8,6 +8,10 @@ contract TrustGraph {
     error LengthMismatch();
     error BatchLimitExceeded(uint256 attempted, uint256 allowed);
     error InvalidBatchLimit();
+    error AggregatorNotAuthorized(address caller);
+    error RequestNotFound(bytes32 requestId);
+    error RequestExpired(bytes32 requestId, uint64 deadline, uint64 currentTime);
+    error InvalidSubject();
 
     event TrustResultRecorded(
         bytes32 indexed evaluator,
@@ -18,17 +22,58 @@ contract TrustGraph {
     );
     event EvaluatorUpdated(address indexed evaluator, bool allowed);
     event BatchLimitUpdated(uint256 limit);
+    event AggregatorUpdated(address indexed aggregator);
+    event TrustOracleRequested(bytes32 indexed requestId, bytes32 indexed subject, address requester, uint64 deadline);
+    event TrustOracleFulfilled(
+        bytes32 indexed requestId,
+        bytes32 indexed subject,
+        bool decision,
+        uint256 score,
+        uint256 flags,
+        uint64 asOf,
+        bytes32 policyHash,
+        address indexed submitter
+    );
 
     address private immutable admin;
     mapping(address => bool) private evaluators;
+    address private aggregator;
 
     mapping(bytes32 => bool) private trustDecisions;
     mapping(bytes32 => bytes32) private credentialReferences;
+
+    struct TrustMetrics {
+        bool decision;
+        uint256 score;
+        uint256 flags;
+        uint64 asOf;
+        bytes32 policyHash;
+    }
+
+    struct PendingRequest {
+        bytes32 subject;
+        uint64 deadline;
+        bool exists;
+    }
+
+    struct OracleReport {
+        bytes32 subject;
+        bool decision;
+        uint256 score;
+        uint256 flags;
+        uint64 asOf;
+        bytes32 policyHash;
+    }
+
+    mapping(bytes32 => TrustMetrics) private subjectMetrics;
+    mapping(bytes32 => PendingRequest) private pendingRequests;
+    uint256 private requestNonce;
 
     uint256 private constant _NOT_ENTERED = 1;
     uint256 private constant _ENTERED = 2;
     uint256 private _status;
     uint256 private maxBatchSize;
+    bytes32 private constant DON_EVALUATOR = keccak256("MINI_DON_EVALUATOR");
 
     modifier onlyAdmin() {
         if (msg.sender != admin) {
@@ -137,9 +182,22 @@ contract TrustGraph {
         return credentialReferences[_key(evaluator, entity)];
     }
 
+    function getTrustMetrics(bytes32 subject) external view returns (TrustMetrics memory) {
+        return subjectMetrics[subject];
+    }
+
     function updateEvaluator(address evaluator, bool allowed) external onlyAdmin nonReentrant {
         evaluators[evaluator] = allowed;
         emit EvaluatorUpdated(evaluator, allowed);
+    }
+
+    function setAggregator(address newAggregator) external onlyAdmin nonReentrant {
+        aggregator = newAggregator;
+        emit AggregatorUpdated(newAggregator);
+    }
+
+    function getAggregator() external view returns (address) {
+        return aggregator;
     }
 
     function setBatchLimit(uint256 newLimit) external onlyAdmin nonReentrant {
@@ -156,5 +214,56 @@ contract TrustGraph {
 
     function isEvaluator(address account) external view returns (bool) {
         return evaluators[account];
+    }
+
+    function requestTrustReport(bytes32 subject, uint64 ttlSeconds) external onlyAdmin nonReentrant returns (bytes32) {
+        if (subject == bytes32(0)) {
+            revert InvalidSubject();
+        }
+        uint64 ttl = ttlSeconds > 0 ? ttlSeconds : uint64(1 hours);
+        uint64 deadline = uint64(block.timestamp + ttl);
+        bytes32 requestId = keccak256(abi.encodePacked(subject, block.timestamp, msg.sender, requestNonce));
+        requestNonce += 1;
+        pendingRequests[requestId] = PendingRequest({subject: subject, deadline: deadline, exists: true});
+        emit TrustOracleRequested(requestId, subject, msg.sender, deadline);
+        return requestId;
+    }
+
+    function fulfillTrustReport(bytes32 requestId, OracleReport calldata report) external nonReentrant {
+        if (msg.sender != aggregator || aggregator == address(0)) {
+            revert AggregatorNotAuthorized(msg.sender);
+        }
+        PendingRequest memory request = pendingRequests[requestId];
+        if (!request.exists) {
+            revert RequestNotFound(requestId);
+        }
+        if (report.subject != request.subject || report.subject == bytes32(0)) {
+            revert InvalidSubject();
+        }
+        if (block.timestamp > request.deadline) {
+            revert RequestExpired(requestId, request.deadline, uint64(block.timestamp));
+        }
+        delete pendingRequests[requestId];
+
+        subjectMetrics[report.subject] = TrustMetrics({
+            decision: report.decision,
+            score: report.score,
+            flags: report.flags,
+            asOf: report.asOf,
+            policyHash: report.policyHash
+        });
+
+        _recordDecision(DON_EVALUATOR, report.subject, report.decision, bytes32(0));
+
+        emit TrustOracleFulfilled(
+            requestId,
+            report.subject,
+            report.decision,
+            report.score,
+            report.flags,
+            report.asOf,
+            report.policyHash,
+            msg.sender
+        );
     }
 }
