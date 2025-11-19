@@ -27,7 +27,7 @@ services:
       RPC_URL: http://anvil:8545
       CONTRACT_ADDRESS: ${CONTRACT_ADDRESS:-0x0000000000000000000000000000000000000000}
       AGGREGATOR_PRIVATE_KEY: ${AGGREGATOR_PRIVATE_KEY:-0x59c6995e998f97a5a0044966f094538c38e2f95b36f3c7a1972c569b9f298561}
-      ALLOWED_NODE_ADDRESSES: ${ALLOWED_NODE_ADDRESSES:-0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266}
+      ALLOWED_NODE_ADDRESSES: ${ALLOWED_NODE_ADDRESSES:-0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266,0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC,0x90F79bf6EB2c4f870365E785982E1f101E93b906}
       AGGREGATOR_QUORUM: ${AGGREGATOR_QUORUM:-1}
       IDENTITY_MODE: ${IDENTITY_MODE:-URI}
       NAMESPACE: ${NAMESPACE:-http://example.org/trust#}
@@ -35,6 +35,7 @@ services:
       DID_ALLOW_NAMES_FALLBACK: ${DID_ALLOW_NAMES_FALLBACK:-true}
       VC_PATHS: ${VC_PATHS:-credentials/issued}
       VC_PROPERTY: ${VC_PROPERTY:-hasGDPVC}
+      NODE_EVALUATOR_MAP: ${NODE_EVALUATOR_MAP:-0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266=http://example.org/trust#Pfizer,0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC=http://example.org/trust#Moderna,0x90F79bf6EB2c4f870365E785982E1f101E93b906=http://example.org/trust#DHL}
       AGGREGATOR_DEBUGPY_HOST: 0.0.0.0
       AGGREGATOR_DEBUGPY_PORT: 5679
     ports:
@@ -51,10 +52,10 @@ services:
     environment:
       RPC_URL: http://anvil:8545
       CONTRACT_ADDRESS: ${CONTRACT_ADDRESS:-0x0000000000000000000000000000000000000000}
-      ORACLE_PRIVATE_KEY: ${ORACLE_PRIVATE_KEY:-0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80}
+      ORACLE_PRIVATE_KEY: ${ORACLE_PFIZER_PRIVATE_KEY:-0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80}
       AGGREGATOR_ENDPOINT: http://aggregator:8080
       ONTOLOGY_PATH: ${ONTOLOGY_PATH:-ontologies/pharma-trust.owl}
-      POLICIES_DIR: ${POLICIES_DIR:-policies}
+      POLICIES_DIR: ${POLICIES_DIR:-policies/pfizer}
       STATS_PATH: ${STATS_PATH:-state/trust_stats.json}
       IDENTITY_MODE: ${IDENTITY_MODE:-URI}
       NAMESPACE: ${NAMESPACE:-http://example.org/trust#}
@@ -68,6 +69,7 @@ services:
       FUSEKI_FORMAT: ${FUSEKI_FORMAT:-turtle}
       VC_PATHS: ${VC_PATHS:-credentials/issued}
       VC_PROPERTY: ${VC_PROPERTY:-hasGDPVC}
+      EVALUATION_MODE: ${ORACLE_EVALUATION_MODE:-hybrid}
       POLL_INTERVAL: ${ORACLE_POLL_INTERVAL:-5}
       ORACLE_DEBUGPY_HOST: 0.0.0.0
       ORACLE_DEBUGPY_PORT: 5678
@@ -75,6 +77,69 @@ services:
       - "5678:5678"
     command: ["python", "-Xfrozen_modules=off", "-m", "oracle.node.oracle_node"]
 
+    depends_on:
+      - aggregator
+      - anvil
+
+  oracle_moderna:
+    build:
+      context: .
+      dockerfile: docker/node.Dockerfile
+    environment:
+      RPC_URL: http://anvil:8545
+      CONTRACT_ADDRESS: ${CONTRACT_ADDRESS:-0x0000000000000000000000000000000000000000}
+      ORACLE_PRIVATE_KEY: ${ORACLE_MODERNA_PRIVATE_KEY:-0x5de4111afa1a4b94908f83103eb1f1706367c2e68ca870fc3fb9a804cdab365a}
+      AGGREGATOR_ENDPOINT: http://aggregator:8080
+      ONTOLOGY_PATH: ${ONTOLOGY_PATH:-ontologies/pharma-trust.owl}
+      POLICIES_DIR: ${MODERNA_POLICIES_DIR:-policies/moderna}
+      STATS_PATH: ${STATS_PATH:-state/trust_stats.json}
+      IDENTITY_MODE: ${IDENTITY_MODE:-URI}
+      NAMESPACE: ${NAMESPACE:-http://example.org/trust#}
+      DID_ETHR_NETWORK: ${DID_ETHR_NETWORK:-}
+      DID_ALLOW_NAMES_FALLBACK: ${DID_ALLOW_NAMES_FALLBACK:-true}
+      FUSEKI_BASE_URL: ${FUSEKI_BASE_URL:-http://fuseki:3030}
+      FUSEKI_DATASET: ${FUSEKI_DATASET:-trustkb}
+      FUSEKI_USER: ${FUSEKI_USER:-admin}
+      FUSEKI_PASS: ${FUSEKI_PASS:-admin123}
+      FUSEKI_ACCEPT: ${FUSEKI_ACCEPT:-text/turtle}
+      FUSEKI_FORMAT: ${FUSEKI_FORMAT:-turtle}
+      VC_PATHS: ${VC_PATHS:-credentials/issued}
+      VC_PROPERTY: ${VC_PROPERTY:-hasGDPVC}
+      EVALUATION_MODE: vc_only
+      POLL_INTERVAL: ${ORACLE_POLL_INTERVAL:-5}
+    command: ["python", "-Xfrozen_modules=off", "-m", "oracle.node.oracle_node"]
+    depends_on:
+      - aggregator
+      - anvil
+
+  oracle_dhl:
+    build:
+      context: .
+      dockerfile: docker/node.Dockerfile
+    environment:
+      RPC_URL: http://anvil:8545
+      CONTRACT_ADDRESS: ${CONTRACT_ADDRESS:-0x0000000000000000000000000000000000000000}
+      ORACLE_PRIVATE_KEY: ${ORACLE_DHL_PRIVATE_KEY:-0x7c852118294e95b565c3fcda9dafa31e8b23bd74c5b1e06fb4a8a07c2f65b6c4}
+      AGGREGATOR_ENDPOINT: http://aggregator:8080
+      ONTOLOGY_PATH: ${ONTOLOGY_PATH:-ontologies/pharma-trust.owl}
+      POLICIES_DIR: ${DHL_POLICIES_DIR:-policies/dhl}
+      STATS_PATH: ${STATS_PATH:-state/trust_stats.json}
+      IDENTITY_MODE: ${IDENTITY_MODE:-URI}
+      NAMESPACE: ${NAMESPACE:-http://example.org/trust#}
+      DID_ETHR_NETWORK: ${DID_ETHR_NETWORK:-}
+      DID_ALLOW_NAMES_FALLBACK: ${DID_ALLOW_NAMES_FALLBACK:-true}
+      FUSEKI_BASE_URL: ${FUSEKI_BASE_URL:-http://fuseki:3030}
+      FUSEKI_DATASET: ${FUSEKI_DATASET:-trustkb}
+      FUSEKI_USER: ${FUSEKI_USER:-admin}
+      FUSEKI_PASS: ${FUSEKI_PASS:-admin123}
+      FUSEKI_ACCEPT: ${FUSEKI_ACCEPT:-text/turtle}
+      FUSEKI_FORMAT: ${FUSEKI_FORMAT:-turtle}
+      VC_PATHS: ${VC_PATHS:-credentials/issued}
+      VC_PROPERTY: ${VC_PROPERTY:-hasGDPVC}
+      EVALUATION_MODE: telemetry
+      TELEMETRY_PATH: ${TELEMETRY_PATH:-state/telemetry_metrics.json}
+      POLL_INTERVAL: ${ORACLE_POLL_INTERVAL:-5}
+    command: ["python", "-Xfrozen_modules=off", "-m", "oracle.node.oracle_node"]
     depends_on:
       - aggregator
       - anvil

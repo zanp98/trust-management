@@ -7,52 +7,38 @@ ARGS ?=
 PY := python
 
 # Scripts
-S_CHAIN   := scripts/chain.sh
-S_DEPLOY  := scripts/deploy.sh
-S_EVAL    := scripts/eval.sh
-S_PUBLISH := scripts/publish.sh
-S_CHECK   := scripts/check.sh
-S_DEMO    := scripts/run_demo.sh
+S_DEPLOY   := scripts/deploy.sh
+S_REQUEST  := scripts/request_report.sh
 
-.PHONY: help env chain deploy eval publish check demo clean install run add-mf link rm hash test
+.PHONY: help env chain deploy request don-up don-down clean install run add-mf link rm hash test
 
 help:
 	@echo "Make targets:"
 	@echo "  make env       # create .env from .env.example if needed"
-	@echo "  make chain     # start anvil (local node)"
 	@echo "  make deploy    # deploy TrustGraph and persist the address into .env"
-	@echo "  make eval      # run the hybrid evaluation and export CSVs"
-	@echo "  make publish   # read CSV and publish trust results on-chain"
-	@echo "  make check     # query a sample trust decision from the chain"
-	@echo "  make demo      # chain → deploy → eval → publish → check"
-	@echo "  make clean     # remove generated CSV/log files"
+	@echo "  make don-up    # start aggregator + oracle nodes in Docker"
+	@echo "  make don-down  # stop the DON docker stack"
+	@echo "  make request   # request a trust report via DON (uses scripts/request_report.sh)"
+	@echo "  make clean     # remove generated logs/state"
 
 env:
 	@if [ ! -f $(ENV_FILE) ]; then cp .env.example $(ENV_FILE); echo "✅ Created .env (from .env.example)"; else echo "ℹ️  .env already exists"; fi
 
-chain:
-	@bash $(S_CHAIN)
-
 deploy:
 	@bash $(S_DEPLOY)
 
-# Note:
-#  - If you do not have src/run_hybrid_eval.py, swap the invocation in scripts/eval.sh with your custom evaluator.
-eval:
-	@bash $(S_EVAL) $(ARGS)
+request:
+	@bash $(S_REQUEST) $(ARGS)
 
-publish:
-	@bash $(S_PUBLISH) $(ARGS)
+don-up:
+	@docker compose up -d --build aggregator oracle_node oracle_moderna oracle_dhl
 
-check:
-	@bash $(S_CHECK) $(ARGS)
-
-demo:
-	@bash $(S_DEMO)
+don-down:
+	@docker compose down
 
 clean:
-	@rm -rf results/*.csv logs/*.json || true
-	@echo "🧹 Cleaned (results/, logs/)"
+	@rm -rf logs/*.json state/*.csv || true
+	@echo "🧹 Cleaned generated logs/state"
 
 install:
 	python -m venv .venv && . .venv/bin/activate && pip install -r requirements.txt

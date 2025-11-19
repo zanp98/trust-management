@@ -54,36 +54,30 @@ make env
 # terminal A – start local chain
 make chain
 
-# terminal B – step through the pipeline
+# terminal B – deploy and exercise the DON
 make deploy      # deploy TrustGraph.sol & write address into .env
-make eval        # run hybrid evaluation, emit CSV + logs (see scripts/eval.sh)
-make publish     # hash identifiers and push results on-chain
-make check       # read a sample trust decision (defaults to DEMO_EVALUATOR/ENTITY)
-
-# or run the whole flow (deploy → eval → publish → check)
-make demo
+make don-up      # start aggregator + Pfizer/Moderna/DHL oracle nodes (Docker)
+make request     # issue a trust-report request (default subject from .env or pass ARGS="http://example.org/...") 
+# ...inspect docker logs / on-chain state...
+make don-down    # stop the DON stack when finished
 ```
 
-Key scripts live under `scripts/` and can be run directly; they honour `--debug` (forwarded from Make via `ARGS="--debug"`).
+Key scripts live under `scripts/` and can be run directly. `scripts/request_report.sh` mirrors the pytest oracle-flow test: it hashes the subject, calls `requestTrustReport`, and polls `getTrustMetrics` until fulfilment (configurable via `.env`).
 
 ### Identity modes & DIDs
 
-- `IDENTITY_MODE=URI` (default) hashes namespace-based URIs such as `http://example.org/trust#Pfizer`.
-- `IDENTITY_MODE=DID` canonicalises `did:ethr` identifiers (with optional `DID_ETHR_NETWORK`). Set `DID_ALLOW_NAMES_FALLBACK=true` while migrating legacy namespace labels; disable once every CSV row uses a DID or raw Ethereum address.
-- Demo lookups use `DEMO_EVALUATOR`/`DEMO_ENTITY`. Override via CLI, e.g. `scripts/check.sh --evaluator did:ethr:... --entity did:ethr:...`.
+- `IDENTITY_MODE=URI` hashes namespace-based URIs such as `http://example.org/trust#Pfizer`.
+- `IDENTITY_MODE=DID` canonicalises `did:ethr` identifiers (with optional `DID_ETHR_NETWORK`). Set `DID_ALLOW_NAMES_FALLBACK=true` while migrating legacy namespace labels; disable once every request uses a DID or raw Ethereum address.
+- The DON request script reads `DON_SUBJECT` from `.env`; override per run via `make request ARGS="http://example.org/trust#DHL"`.
 
 ### Optional verifiable credentials
 
-Credential support remains available but is disabled by default (`VC_ENABLED=false`). To require signed trust evaluations:
+Provide or mint verifiable credentials (e.g., GDP compliance) for the relevant entities and point `VC_PATHS` at the bundle (comma-separated). Each oracle node:
 
-1. Provide or mint verifiable credentials (e.g., GDP compliance) for the relevant entities.
-2. Run the evaluator with `src/run_hybrid_eval.py --vc credentials/*.jsonld` (or repeated `--vc path` flags).  
-   This injects the boolean feature `hasGDPVC` (configurable via `--vc-property`) during rule evaluation and records both `VCPath` and `CredentialHash` columns in the output CSV.
-3. `src/write_results_onchain.py` inspects those columns automatically: if any credential hash is present it switches to `batchSetTrustDecisionsWithCredentials`, forwarding zero hashes for rows without VCs.
-4. The oracle + aggregator load the same VC bundle by reading `VC_PATHS` (comma-separated paths, default `credentials/issued`). The oracle sets `hasGDPVC` when a valid, non-revoked credential exists; the aggregator cross-checks submitted credential hashes against the local store before fulfilling.
-5. (Optional) Set `VC_REQUIRED=true` so `make publish` or downstream scripts refuse to send rows missing credentials.
+1. Loads the descriptors via `identity_utils.gather_vc_facts` and injects the boolean fact (default `hasGDPVC`) into its evaluation logic.
+2. Includes the credential hash + revocation flag inside every signed report.
 
-→ Detailed diagram of the VC/DID flow lives in `docs/vc_did_integration.md`.
+The aggregator loads the same bundle, verifies that submitted hashes match a non-revoked VC, and only then records `OracleReportRecorded` on-chain. See `docs/vc_did_integration.md` for a deeper dive into the VC/DID flow.
 
 ---
 
@@ -155,7 +149,7 @@ The smoke test hits the Fuseki `SELECT` endpoint; ensure the dataset is running 
 - **Missing environment values** – scripts fail fast when required `.env` keys are absent; rerun `make env` and fill in secrets.
 - **SPARQL auth errors** – confirm `FUSEKI_USER/FUSEKI_PASS` match your Fuseki admin credentials.
 - **Identity errors** – when `IDENTITY_MODE=DID`, CSV values must be valid `did:ethr` identifiers or Ethereum addresses (with fallback enabled only during transition).
-- **Credential verification failures** – ensure `VC_ENABLED` matches your dataset’s state, or set `VC_REQUIRED=false` while backfilling VCs.
+- **Credential verification failures** – ensure `VC_PATHS` points to the credential bundle seen by both oracle nodes and the aggregator (comma-separated paths); restart services after updating the files.
 
 ---
 
@@ -175,10 +169,10 @@ Feel free to adapt the CLI into APIs or additional automation as your workflow e
 
 1. **Data sources** – The pharmaceutical knowledge base lives in Fuseki (`trustkb` dataset) and is seeded from `ontologies/pharma-trust.owl`. The CLI under `src/trustkb/` adds or amends triples that describe manufacturers, logistics partners, and quality metrics.
 2. **Policies** – Trust requirements are maintained as JSON files in `policies/`. Each policy defines the evaluator, the actor types it vets, and property thresholds/weights used by the hybrid algorithm.
-3. **Hybrid evaluation** – `make eval` (→ `scripts/eval.sh`) calls `src/run_hybrid_eval.py`, which loads the ontology plus every policy. The extended evaluator (`src/trust_evaluator_ext.py`) combines deterministic rule checking with a probabilistic Beta-EWMA model backed by `state/trust_stats.json`. It writes one or more CSVs under `results/` and records the ontology/policy hashes in `logs/run-*.json`.
-4. **Publishing on-chain** – After deployment (`make deploy` → `scripts/deploy.sh`), `make publish` feeds the latest CSV to `src/write_results_onchain.py`. Identifiers are canonicalised and keccak-hashed via `IdentityHasher` (`src/identity_utils.py`). When `VC_ENABLED=true` the script also resolves, verifies, and hashes each credential via EBSI before calling `batchSetTrustDecisionsWithCredentials`; otherwise it falls back to `batchSetTrustDecisions`.
-5. **Querying & monitoring** – `make check` (→ `scripts/check.sh`) uses `src/read_trustgraph.py` to normalise identities in the same way and query the contract. Contract state holds the authoritative decision bits, while the CSVs/logs on disk remain the auditable trail.
-6. **Optional credentials** – When `VC_ENABLED=true`, issue verifiable credentials with `python -m src.issue_vc …` before publishing; `make publish` verifies them (via DIDKit/EBSI, depending on your configuration) before uploading results. Disable via `.env` while backfilling legacy data.
-7. **Mini-DON prototype** – `docs/oracle/README.md` outlines how to turn the evaluator into a decentralised oracle network. `TrustGraph.sol` already exposes request/fulfil flows, and scaffolding for nodes/aggregator lives under `oracle/`.
+3. **Oracle evaluation** – The dockerised Pfizer/Moderna/DHL nodes (see `docker-compose.yml`) run `oracle/node/oracle_node.py` with per-actor policy folders and `EVALUATION_MODE` (`hybrid`, `vc_only`, or `telemetry`). They watch `TrustOracleRequested`, refresh ontology + VC extras, execute their algorithm, and sign a canonical `OracleReport`.
+4. **Publishing on-chain** – The aggregator service collects signed reports via `/reports`, immediately calls `recordOracleSubmission` (recording every `(actor → subject)` metric), and once quorum is met calls `fulfillTrustReport` to store the EMA consensus under `keccak256("MINI_DON_EVALUATOR")`.
+5. **Requesting & monitoring** – Use `make request` (→ `scripts/request_report.sh`) to hash a subject, call `requestTrustReport`, and wait until `getTrustMetrics` reflects the fulfilment. Inspect `OracleReportRecorded` / `TrustOracleFulfilled` events or call the read-only getters to audit outcomes.
+6. **Optional credentials** – When `VC_PATHS` points to a credential bundle, oracle nodes inject the boolean fact (e.g., `hasGDPVC`) and include the credential hash in every signed report. The aggregator cross-checks hashes/revocation state before recording submissions, guaranteeing the DON ignores expired or tampered VCs.
+7. **Mini-DON stack** – `docs/oracle/README.md` documents the full flow plus additional settings (e.g., `NODE_EVALUATOR_MAP`, per-node policy directories, monitoring hooks) so you can plug in additional actors or replace the sample evaluation modes with bespoke codebases.
 
 Together, these steps provide: (a) a shared ontology and policy store for trust criteria, (b) a repeatable evaluation workflow with explainable artefacts on disk, and (c) an immutable on-chain registry of the resulting trust decisions.

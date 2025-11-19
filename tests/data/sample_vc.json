@@ -9,6 +9,6 @@
     "gdpCompliant": true
   },
   "credentialStatus": {
-    "revoked": true
+    "revoked": false
   }
 }

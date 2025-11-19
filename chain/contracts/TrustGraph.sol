@@ -34,6 +34,18 @@ contract TrustGraph {
         bytes32 policyHash,
         address indexed submitter
     );
+    event OracleReportRecorded(
+        bytes32 indexed requestId,
+        bytes32 indexed evaluator,
+        bytes32 indexed subject,
+        bool decision,
+        uint256 score,
+        uint256 flags,
+        uint64 asOf,
+        bytes32 policyHash,
+        bytes32 credentialHash,
+        address node
+    );
 
     address private immutable admin;
     mapping(address => bool) private evaluators;
@@ -65,7 +77,19 @@ contract TrustGraph {
         bytes32 policyHash;
     }
 
+    struct OracleSubmission {
+        bool decision;
+        uint256 score;
+        uint256 flags;
+        uint64 asOf;
+        bytes32 policyHash;
+        bytes32 credentialHash;
+        address node;
+        bytes32 requestId;
+    }
+
     mapping(bytes32 => TrustMetrics) private subjectMetrics;
+    mapping(bytes32 => mapping(bytes32 => OracleSubmission)) public oracleSubmissions;
     mapping(bytes32 => PendingRequest) private pendingRequests;
     uint256 private requestNonce;
 
@@ -214,6 +238,50 @@ contract TrustGraph {
 
     function isEvaluator(address account) external view returns (bool) {
         return evaluators[account];
+    }
+
+    function recordOracleSubmission(
+        bytes32 requestId,
+        bytes32 evaluator,
+        OracleReport calldata report,
+        bytes32 credentialHash,
+        address node
+    ) external nonReentrant {
+        if (msg.sender != aggregator || aggregator == address(0)) {
+            revert AggregatorNotAuthorized(msg.sender);
+        }
+        if (evaluator == bytes32(0)) {
+            revert InvalidSubject();
+        }
+        PendingRequest memory request = pendingRequests[requestId];
+        if (!request.exists) {
+            revert RequestNotFound(requestId);
+        }
+        if (report.subject != request.subject || report.subject == bytes32(0)) {
+            revert InvalidSubject();
+        }
+        oracleSubmissions[evaluator][report.subject] = OracleSubmission({
+            decision: report.decision,
+            score: report.score,
+            flags: report.flags,
+            asOf: report.asOf,
+            policyHash: report.policyHash,
+            credentialHash: credentialHash,
+            node: node,
+            requestId: requestId
+        });
+        emit OracleReportRecorded(
+            requestId,
+            evaluator,
+            report.subject,
+            report.decision,
+            report.score,
+            report.flags,
+            report.asOf,
+            report.policyHash,
+            credentialHash,
+            node
+        );
     }
 
     function requestTrustReport(bytes32 subject, uint64 ttlSeconds) external onlyAdmin nonReentrant returns (bytes32) {

@@ -16,7 +16,8 @@ import dataclasses
 import json
 import logging
 import os
-from typing import Any, Dict, List, Sequence
+import threading
+from typing import Any, Dict, List, Sequence, Tuple
 
 from aiohttp import web
 from eth_account.messages import encode_defunct
@@ -34,7 +35,7 @@ if os.getenv("AGGREGATOR_DEBUGPY_PORT"):
     port = int(os.getenv("AGGREGATOR_DEBUGPY_PORT", "8080"))
     LOG.info("debugpy listening on %s:%s; waiting for client...", host, port)
     debugpy.listen((host, port))
-    debugpy.wait_for_client()
+    # debugpy.wait_for_client() # Uncomment to block until debugger attaches
 
 @dataclasses.dataclass
 class AggregatorConfig:
@@ -52,6 +53,7 @@ class AggregatorConfig:
     allow_namespace_fallback: bool = True
     vc_paths: Sequence[str] = dataclasses.field(default_factory=list)
     vc_property: str = "hasGDPVC"
+    node_evaluator_map: Dict[str, str] = dataclasses.field(default_factory=dict)
 
 
 class AggregationError(Exception):
@@ -75,6 +77,7 @@ class AggregatorService:
             abi=artifact["abi"],
         )
         self._account = self._w3.eth.account.from_key(config.private_key)
+        self._nonce_lock = threading.Lock()
         self._pending: Dict[bytes, List[SignedOracleReport]] = collections.defaultdict(list)
         self._allowed_nodes = {addr.lower() for addr in config.allowed_nodes}
         self._app = web.Application()
@@ -92,6 +95,19 @@ class AggregatorService:
             self._vc_lookup[subject_hash] = info
         if self._vc_lookup:
             LOG.info("loaded %d verifiable credential(s) for validation", len(self._vc_lookup))
+        self._node_evaluators = self._prepare_node_evaluators(config.node_evaluator_map)
+
+    def _prepare_node_evaluators(self, mapping: Dict[str, str]) -> Dict[str, Dict[str, Any]]:
+        result: Dict[str, Dict[str, Any]] = {}
+        for raw_addr, label in mapping.items():
+            addr = raw_addr.strip().lower()
+            if not addr or not label:
+                continue
+            evaluator_hash = self._identity_hasher.hash_single(label)
+            result[addr] = {"label": label, "hash": evaluator_hash}
+        if result:
+            LOG.info("configured %d node → evaluator mapping(s)", len(result))
+        return result
 
     async def run(self) -> None:
         LOG.info("aggregator service started")
@@ -131,6 +147,7 @@ class AggregatorService:
             LOG.info("duplicate submission from %s for %s ignored", signed_report.node_id, request_id.hex())
             return
         bucket.append(signed_report)
+        await self._record_individual_submission(request_id, signed_report)
 
     async def _flush_ready_reports(self) -> None:
         ready: List[bytes] = [
@@ -158,8 +175,11 @@ class AggregatorService:
 
         policy_hashes = {r.report.policy_hash for r in reports}
         if len(policy_hashes) != 1:
-            raise AggregationError("mismatched policy hashes in reports")
-        policy_hash = policy_hashes.pop()
+            LOG.warning(
+                "policy hash disagreement for %s – proceeding with first hash",
+                reports[0].report.subject.hex(),
+            )
+        policy_hash = reports[0].report.policy_hash
 
         credential_hashes = {r.report.credential_hash for r in reports}
         if len(credential_hashes) > 1:
@@ -213,9 +233,31 @@ class AggregatorService:
         LOG.info("publishing aggregated report for %s to TrustGraph.sol", request_id.hex())
         await asyncio.to_thread(self._send_transaction, request_id, aggregated)
 
+    async def _record_individual_submission(self, request_id: bytes, signed: SignedOracleReport) -> None:
+        node_id = signed.node_id.lower()
+        evaluator = self._node_evaluators.get(node_id)
+        if not evaluator:
+            LOG.warning("no evaluator mapping configured for node %s; skipping on-chain record", node_id)
+            return
+        try:
+            await asyncio.to_thread(
+                self._send_submission_transaction,
+                request_id,
+                evaluator["hash"],
+                signed,
+                node_id,
+            )
+        except Exception as exc:  # pylint: disable=broad-except
+            LOG.warning(
+                "failed to record oracle submission for %s from %s: %s",
+                request_id.hex(),
+                node_id,
+                exc,
+            )
+
     def _send_transaction(self, request_id: bytes, aggregated: AggregatedReport) -> None:
         report = aggregated.report
-        tx = self._contract.functions.fulfillTrustReport(
+        fn = self._contract.functions.fulfillTrustReport(
             request_id,
             (
                 report.subject,
@@ -225,20 +267,59 @@ class AggregatorService:
                 report.as_of,
                 report.policy_hash
             ),
-        ).build_transaction(
-            {
-                "from": self._account.address,
-                "nonce": self._w3.eth.get_transaction_count(self._account.address),
-                "gas": 500_000,
-                "gasPrice": self._w3.eth.gas_price,
-            }
         )
-        signed = self._account.sign_transaction(tx)
-        tx_hash = self._w3.eth.send_raw_transaction(signed.raw_transaction)
+        tx_hash, receipt = self._send_contract_tx(fn)
         LOG.info("submitted fulfill tx %s", tx_hash.hex())
-        receipt = self._w3.eth.wait_for_transaction_receipt(tx_hash)
         if receipt.status != 1:
             LOG.error("transaction %s failed with status %s", tx_hash.hex(), receipt.status)
+
+    def _send_submission_transaction(
+        self,
+        request_id: bytes,
+        evaluator_hash: bytes,
+        signed: SignedOracleReport,
+        node_id: str,
+    ) -> None:
+        report = signed.report
+        node_address = Web3.to_checksum_address(node_id)
+        fn = self._contract.functions.recordOracleSubmission(
+            request_id,
+            evaluator_hash,
+            (
+                report.subject,
+                report.decision,
+                report.score,
+                report.flags,
+                report.as_of,
+                report.policy_hash,
+            ),
+            report.credential_hash,
+            node_address,
+        )
+        tx_hash, receipt = self._send_contract_tx(fn)
+        if receipt.status != 1:
+            LOG.error(
+                "recordOracleSubmission tx %s failed with status %s",
+                tx_hash.hex(),
+                receipt.status,
+            )
+        else:
+            LOG.info("recorded oracle submission for %s from %s via tx %s", request_id.hex(), node_id, tx_hash.hex())
+
+    def _send_contract_tx(self, fn) -> Tuple[bytes, Any]:
+        with self._nonce_lock:
+            tx = fn.build_transaction(
+                {
+                    "from": self._account.address,
+                    "nonce": self._w3.eth.get_transaction_count(self._account.address),
+                    "gas": 500_000,
+                    "gasPrice": self._w3.eth.gas_price,
+                }
+            )
+            signed = self._account.sign_transaction(tx)
+            tx_hash = self._w3.eth.send_raw_transaction(signed.raw_transaction)
+        receipt = self._w3.eth.wait_for_transaction_receipt(tx_hash)
+        return tx_hash, receipt
 
     def _verify_signature(self, signed: SignedOracleReport) -> None:
         node_id = signed.node_id.lower()
@@ -251,12 +332,23 @@ class AggregatorService:
             raise ValueError(f"Signature mismatch: recovered {recovered}, expected {node_id}")
 
 
+def _parse_node_evaluator_map(raw: str) -> Dict[str, str]:
+    mapping: Dict[str, str] = {}
+    for entry in raw.split(","):
+        item = entry.strip()
+        if not item or "=" not in item:
+            continue
+        addr, label = item.split("=", 1)
+        mapping[addr.strip().lower()] = label.strip()
+    return mapping
+
 def main() -> None:
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
     allowed = os.environ.get("ALLOWED_NODE_ADDRESSES", "")
     allowed_nodes = [addr.strip().lower() for addr in allowed.split(",") if addr.strip()]
     vc_paths_env = os.environ.get("VC_PATHS", "")
     vc_paths = [entry.strip() for entry in vc_paths_env.split(",") if entry.strip()]
+    node_map = _parse_node_evaluator_map(os.environ.get("NODE_EVALUATOR_MAP", ""))
     cfg = AggregatorConfig(
         rpc_url=os.environ["RPC_URL"],
         contract_address=os.environ["CONTRACT_ADDRESS"],
@@ -264,13 +356,14 @@ def main() -> None:
         host=os.environ.get("AGGREGATOR_HOST", "0.0.0.0"),
         port=int(os.environ.get("AGGREGATOR_PORT", "8080")),
         allowed_nodes=allowed_nodes,
-        quorum=int(os.environ.get("AGGREGATOR_QUORUM", "3")),
+        quorum=int(os.environ.get("AGGREGATOR_QUORUM", "1")),
         identity_mode=os.environ.get("IDENTITY_MODE", "URI"),
         namespace=os.environ.get("NAMESPACE", "http://example.org/trust#"),
         did_network=os.environ.get("DID_ETHR_NETWORK", ""),
         allow_namespace_fallback=os.environ.get("DID_ALLOW_NAMES_FALLBACK", "true").lower() != "false",
         vc_paths=vc_paths,
         vc_property=os.environ.get("VC_PROPERTY", "hasGDPVC"),
+        node_evaluator_map=node_map,
     )
     service = AggregatorService(cfg)
     asyncio.run(service.run())

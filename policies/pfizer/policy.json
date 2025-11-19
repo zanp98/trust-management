@@ -1,0 +1,24 @@
+{
+  "actor": "http://example.org/trust#Pfizer",
+  "prob_threshold": 0.75,
+  "_weights": {
+    "hasDeliveryPunctuality": 0.7,
+    "hasTempViolationRate": 0.3,
+    "hasAuditScore": 0.6,
+    "hasLicense": 0.4,
+    "hasGDPVC": 0.5
+  },
+  "trusts": {
+    "Transporter": {
+      "hasDeliveryPunctuality": { "gte": 0.99 },
+      "hasTempViolationRate": { "lte": 0.05 }
+    },
+    "Distributor": {
+      "hasLicense": true,
+      "hasGDPVC": true
+    },
+    "Manufacturer": {
+      "hasAuditScore": { "gte": 0.90 }
+    }
+  }
+}

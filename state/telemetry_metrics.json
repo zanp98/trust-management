@@ -1,0 +1,17 @@
+{
+  "http://example.org/trust#DHL": {
+    "tempDeviation": 0.02,
+    "lateDeliveries": 0.01,
+    "alerts": 0
+  },
+  "http://example.org/trust#UPS": {
+    "tempDeviation": 0.04,
+    "lateDeliveries": 0.03,
+    "alerts": 1
+  },
+  "http://example.org/trust#AcmeTransport": {
+    "tempDeviation": 0.08,
+    "lateDeliveries": 0.05,
+    "alerts": 3
+  }
+}

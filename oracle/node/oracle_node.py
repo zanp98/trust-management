@@ -47,7 +47,7 @@ if os.getenv("ORACLE_DEBUGPY_PORT"):
     port = int(os.getenv("ORACLE_DEBUGPY_PORT", "5678"))
     LOG.info("debugpy listening on %s:%s; waiting for client...", host, port)
     debugpy.listen((host, port))
-    debugpy.wait_for_client()
+    # debugpy.wait_for_client() # Uncomment to block until debugger attaches
 
 
 @dataclass
@@ -72,6 +72,8 @@ class NodeConfig:
     fuseki_format: str = "turtle"
     vc_paths: List[str] = field(default_factory=list)
     vc_property: str = "hasGDPVC"
+    evaluation_mode: str = "hybrid"
+    telemetry_path: str = "state/telemetry_metrics.json"
 
 
 class OracleNode:
@@ -107,12 +109,25 @@ class OracleNode:
         self._evaluator.set_extra_facts(self._vc_extras)
         if self._vc_metadata:
             LOG.info("loaded %d verifiable credential(s) for enrichment", len(self._vc_metadata))
+        self._vc_hash_index: Dict[bytes, Dict[str, Any]] = {}
+        for canonical, info in self._vc_metadata.items():
+            subject_hash = bytes(Web3.keccak(text=canonical))
+            indexed = dict(info)
+            indexed["canonical"] = canonical
+            self._vc_hash_index[subject_hash] = indexed
         self._fuseki_base_url = config.fuseki_base_url.rstrip("/")
         self._fuseki_dataset = config.fuseki_dataset.strip("/")
         self._fuseki_user = config.fuseki_user
         self._fuseki_pass = config.fuseki_pass
         self._fuseki_accept = config.fuseki_accept
         self._fuseki_format = config.fuseki_format
+        self._evaluation_mode = (config.evaluation_mode or "hybrid").strip().lower()
+        self._telemetry_path = config.telemetry_path
+        self._telemetry_data = self._load_telemetry_data(self._telemetry_path)
+        self._telemetry_index: Dict[bytes, Dict[str, Any]] = {}
+        for canonical, payload in self._telemetry_data.items():
+            subject_hash = bytes(Web3.keccak(text=canonical))
+            self._telemetry_index[subject_hash] = payload
 
     async def run(self) -> None:
         """Main event loop."""
@@ -150,10 +165,20 @@ class OracleNode:
             await self.submit_to_aggregator(request_id, signed)
 
     async def evaluate_subject(self, subject: bytes) -> Optional[OracleReport]:
+        mode = self._evaluation_mode
+        if mode == "hybrid":
+            return await self._evaluate_hybrid(subject)
+        if mode == "vc_only":
+            return await asyncio.to_thread(self._evaluate_vc_only, subject)
+        if mode == "telemetry":
+            return await asyncio.to_thread(self._evaluate_telemetry, subject)
+        LOG.warning("unknown evaluation mode %s – falling back to hybrid", mode)
+        return await self._evaluate_hybrid(subject)
+
+    async def _evaluate_hybrid(self, subject: bytes) -> Optional[OracleReport]:
         df = await asyncio.to_thread(self._run_full_evaluation)
         if df.empty:
             return None
-
         matching = self._rows_for_subject(df, subject)
         if not matching:
             LOG.warning("no evaluation rows found for subject %s", subject.hex())
@@ -189,6 +214,58 @@ class OracleNode:
         LOG.info(
             "evaluated subject %s: decision=%s score=%s flags=0x%x", subject.hex(), decision, score_basis_points, flags
         )
+        return report
+
+    def _evaluate_vc_only(self, subject: bytes) -> Optional[OracleReport]:
+        info = self._vc_hash_index.get(subject)
+        flags = 0
+        credential_hash = info.get("hash_bytes", bytes(32)) if info else bytes(32)
+        if info is None:
+            flags |= FLAG_NO_DATA
+        revoked = bool(info.get("revoked", False)) if info else False
+        if revoked:
+            flags |= FLAG_VC_REVOKED
+        decision = bool(info) and not revoked
+        score_basis_points = 9500 if decision else 0
+        if score_basis_points < 7000:
+            flags |= FLAG_LOW_SCORE
+        report = OracleReport(
+            subject=subject,
+            decision=decision,
+            score=score_basis_points,
+            flags=flags,
+            as_of=int(time.time()),
+            policy_hash=self._policy_hash,
+            credential_hash=credential_hash,
+        )
+        LOG.info("vc-only evaluation for %s -> decision=%s flags=0x%x", subject.hex(), decision, flags)
+        return report
+
+    def _evaluate_telemetry(self, subject: bytes) -> Optional[OracleReport]:
+        payload = self._telemetry_index.get(subject)
+        flags = 0
+        if not payload:
+            flags |= FLAG_NO_DATA
+        punctuality = 1.0 - float(payload.get("lateDeliveries", 0.0)) if payload else 0.0
+        temperature = 1.0 - float(payload.get("tempDeviation", 0.0)) if payload else 0.0
+        alerts = float(payload.get("alerts", 0.0)) if payload else 0.0
+        base_score = max(0.0, min(1.0, 0.6 * punctuality + 0.3 * temperature - 0.05 * alerts))
+        score_basis_points = int(base_score * 10000)
+        if score_basis_points < 7000:
+            flags |= FLAG_LOW_SCORE
+        decision = score_basis_points >= 7500 and alerts < 2
+        credential_info = self._vc_hash_index.get(subject)
+        credential_hash = credential_info.get("hash_bytes", bytes(32)) if credential_info else bytes(32)
+        report = OracleReport(
+            subject=subject,
+            decision=decision,
+            score=score_basis_points,
+            flags=flags,
+            as_of=int(time.time()),
+            policy_hash=self._policy_hash,
+            credential_hash=credential_hash,
+        )
+        LOG.info("telemetry evaluation for %s -> decision=%s score=%s", subject.hex(), decision, score_basis_points)
         return report
 
     def sign_report(self, report: OracleReport) -> SignedOracleReport:
@@ -289,6 +366,17 @@ class OracleNode:
                 break
         return hash_bytes, revoked_detected
 
+    @staticmethod
+    def _load_telemetry_data(path: str) -> Dict[str, Dict[str, Any]]:
+        telemetry_path = Path(path)
+        if not telemetry_path.exists():
+            return {}
+        try:
+            return json.loads(telemetry_path.read_text(encoding="utf-8"))
+        except Exception as exc:  # pylint: disable=broad-except
+            LOG.warning("failed to load telemetry data from %s: %s", telemetry_path, exc)
+            return {}
+
 
 def main() -> None:
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
@@ -315,6 +403,8 @@ def main() -> None:
         fuseki_format=os.environ.get("FUSEKI_FORMAT", "turtle"),
         vc_paths=vc_paths,
         vc_property=os.environ.get("VC_PROPERTY", "hasGDPVC"),
+        evaluation_mode=os.environ.get("EVALUATION_MODE", "hybrid"),
+        telemetry_path=os.environ.get("TELEMETRY_PATH", "state/telemetry_metrics.json"),
     )
     node = OracleNode(cfg)
     asyncio.run(node.run())

@@ -1,0 +1,18 @@
+{
+  "actor": "http://example.org/trust#DHL",
+  "prob_threshold": 0.7,
+  "_weights": {
+    "hasDeliveryPunctuality": 0.5,
+    "hasTempDeviationScore": 0.5,
+    "hasGDPVC": 0.4
+  },
+  "trusts": {
+    "Manufacturer": {
+      "hasGDPVC": true,
+      "hasTempDeviationScore": { "lte": 0.1 }
+    },
+    "Distributor": {
+      "hasDeliveryPunctuality": { "gte": 0.95 }
+    }
+  }
+}

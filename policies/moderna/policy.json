@@ -1,0 +1,22 @@
+{
+  "actor": "http://example.org/trust#Moderna",
+  "prob_threshold": 0.8,
+  "_weights": {
+    "hasGDPVC": 0.6,
+    "hasAuditScore": 0.4,
+    "hasRecallRate": 0.5,
+    "hasLicense": 0.3
+  },
+  "trusts": {
+    "Distributor": {
+      "hasGDPVC": true,
+      "hasLicense": true
+    },
+    "Manufacturer": {
+      "hasAuditScore": { "gte": 0.92 }
+    },
+    "Transporter": {
+      "hasRecallRate": { "lte": 0.02 }
+    }
+  }
+}
