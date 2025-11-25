@@ -62,7 +62,7 @@ contract TrustGraph {
         bytes32 policyHash;
     }
 
-    struct PendingRequest {
+    struct PendingRequest { 
         bytes32 subject;
         uint64 deadline;
         bool exists;

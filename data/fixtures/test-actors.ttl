@@ -1,0 +1,45 @@
+@prefix trust: <http://example.org/trust#> .
+@prefix xsd:   <http://www.w3.org/2001/XMLSchema#> .
+
+# Dodatni akterji za lokalne teste DON/EMA scenarija.
+
+trust:HealthChain a trust:Transporter ;
+  trust:hasDID "did:key:z6Mkhealthchain123456789abc"^^xsd:string ;
+  trust:hasDeliveryPunctuality "0.97"^^xsd:float ;
+  trust:hasTempViolationRate "0.03"^^xsd:float ;
+  trust:hasRecallRate "0.015"^^xsd:float ;
+  trust:hasGDPVC "true"^^xsd:boolean .
+
+trust:MedLogix a trust:Distributor ;
+  trust:hasDID "did:key:z6Mkmedlogix123456789abcde"^^xsd:string ;
+  trust:hasLicense "true"^^xsd:boolean ;
+  trust:hasGDPVC "true"^^xsd:boolean ;
+  trust:hasDeliveryPunctuality "0.93"^^xsd:float ;
+  trust:trustedPartner trust:HealthChain .
+
+trust:BioPharm a trust:Manufacturer ;
+  trust:hasDID "did:key:z6MkbioPharm987654321cdefg"^^xsd:string ;
+  trust:hasAuditScore "0.90"^^xsd:float ;
+  trust:hasGMP "true"^^xsd:boolean ;
+  trust:hasTempDeviationScore "0.08"^^xsd:float ;
+  trust:hasGDPVC "true"^^xsd:boolean .
+
+trust:CanaryLabs a trust:Manufacturer ;
+  trust:hasDID "did:key:z6Mkcanarylabs13579bdfhjlnp"^^xsd:string ;
+  trust:hasAuditScore "0.81"^^xsd:float ;
+  trust:hasGMP "true"^^xsd:boolean ;
+  trust:hasTempDeviationScore "0.12"^^xsd:float ;
+  trust:hasGDPVC "false"^^xsd:boolean .
+
+trust:GreenPharmacy a trust:Pharmacy ;
+  trust:hasDID "did:key:z6Mkgreenpharm2468acegjlqs"^^xsd:string ;
+  trust:hasPrescriptionComplianceRate "0.94"^^xsd:float ;
+  trust:hasLicense "true"^^xsd:boolean ;
+  trust:hasGDPVC "true"^^xsd:boolean .
+
+trust:SkyFreight a trust:Transporter ;
+  trust:hasDID "did:key:z6Mkskyfreight112233445566"^^xsd:string ;
+  trust:hasDeliveryPunctuality "0.90"^^xsd:float ;
+  trust:hasTempViolationRate "0.08"^^xsd:float ;
+  trust:hasRecallRate "0.035"^^xsd:float ;
+  trust:hasGDPVC "false"^^xsd:boolean .

@@ -4,6 +4,11 @@
     "lateDeliveries": 0.01,
     "alerts": 0
   },
+  "http://example.org/trust#MedLogix": {
+    "tempDeviation": 0.03,
+    "lateDeliveries": 0.02,
+    "alerts": 0
+  },
   "http://example.org/trust#UPS": {
     "tempDeviation": 0.04,
     "lateDeliveries": 0.03,

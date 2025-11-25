@@ -16,6 +16,7 @@ help:
 	@echo "Make targets:"
 	@echo "  make env       # create .env from .env.example if needed"
 	@echo "  make deploy    # deploy TrustGraph and persist the address into .env"
+	@echo "  make set-aggregator # call setAggregator with AGGREGATOR_PRIVATE_KEY-derived address"
 	@echo "  make don-up    # start aggregator + oracle nodes in Docker"
 	@echo "  make don-down  # stop the DON docker stack"
 	@echo "  make request   # request a trust report via DON (uses scripts/request_report.sh)"
@@ -26,6 +27,18 @@ env:
 
 deploy:
 	@bash $(S_DEPLOY)
+
+set-aggregator:
+	@set -e; \
+	if [ -f .env ]; then . ./.env; fi; \
+	: "$${CONTRACT_ADDRESS:?Missing CONTRACT_ADDRESS (run make deploy or set in .env)}"; \
+	: "$${AGGREGATOR_PRIVATE_KEY:=$${AGGREGATOR_PRIVATE_KEY:-0x59c6995e998f97a5a0044966f094538c38e2f95b36f3c7a1972c569b9f298561}}"; \
+	ADMIN_PK=$${PRIVATE_KEY:-$$DEPLOYER_PK}; \
+	if [ -z "$$ADMIN_PK" ]; then echo "Missing PRIVATE_KEY or DEPLOYER_PK for admin signer"; exit 1; fi; \
+	RPC=$${RPC_URL:-http://localhost:8545}; \
+	AGG_ADDR=$$(cast wallet address --private-key $$AGGREGATOR_PRIVATE_KEY); \
+	echo "Authorizing aggregator $$AGG_ADDR on $$CONTRACT_ADDRESS (rpc $$RPC)"; \
+	cast send --rpc-url "$$RPC" --private-key "$$ADMIN_PK" "$$CONTRACT_ADDRESS" "setAggregator(address)" "$$AGG_ADDR"
 
 request:
 	@bash $(S_REQUEST) $(ARGS)

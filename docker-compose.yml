@@ -5,6 +5,31 @@ services:
     ports:
       - "8545:8545"
 
+  vc_store:
+    image: python:3.11-slim
+    working_dir: /data
+    command: ["python", "-m", "http.server", "8000"]
+    volumes:
+      - ./credentials:/data:ro          # vsebuje VCs (JSON)
+    expose:
+      - "8000"
+    ports:
+      - "8090:8000"                     # opcijsko za dostop z hosta
+    restart: unless-stopped
+
+  vc_sync:
+    image: alpine:3.19
+    depends_on:
+      - vc_store
+    command: >
+      /bin/sh -c "mkdir -p /vc && rm -rf /vc/* &&
+      cp -r /data/. /vc &&
+      tail -f /dev/null"
+    volumes:
+      - vc_bundle:/vc                   # deljen volume za oraklje/agregator
+    volumes_from:
+      - vc_store
+
   fuseki:
     image: stain/jena-fuseki
     container_name: fuseki
@@ -33,17 +58,20 @@ services:
       NAMESPACE: ${NAMESPACE:-http://example.org/trust#}
       DID_ETHR_NETWORK: ${DID_ETHR_NETWORK:-}
       DID_ALLOW_NAMES_FALLBACK: ${DID_ALLOW_NAMES_FALLBACK:-true}
-      VC_PATHS: ${VC_PATHS:-credentials/issued}
+      VC_PATHS: ${VC_PATHS:-/app/credentials/issued}
       VC_PROPERTY: ${VC_PROPERTY:-hasGDPVC}
       NODE_EVALUATOR_MAP: ${NODE_EVALUATOR_MAP:-0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266=http://example.org/trust#Pfizer,0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC=http://example.org/trust#Moderna,0x90F79bf6EB2c4f870365E785982E1f101E93b906=http://example.org/trust#DHL}
       AGGREGATOR_DEBUGPY_HOST: 0.0.0.0
       AGGREGATOR_DEBUGPY_PORT: 5679
+    volumes:
+      - vc_bundle:/app/credentials:ro
     ports:
       - "8080:8080"
       - "5679:5679"
     command: ["python", "-Xfrozen_modules=off", "-m", "oracle.aggregator.aggregator"]
     depends_on:
       - anvil
+      - vc_sync
 
   oracle_node:
     build:
@@ -67,12 +95,12 @@ services:
       FUSEKI_PASS: ${FUSEKI_PASS:-admin123}
       FUSEKI_ACCEPT: ${FUSEKI_ACCEPT:-text/turtle}
       FUSEKI_FORMAT: ${FUSEKI_FORMAT:-turtle}
-      VC_PATHS: ${VC_PATHS:-credentials/issued}
+      VC_PATHS: ${VC_PATHS:-/app/credentials/issued}
       VC_PROPERTY: ${VC_PROPERTY:-hasGDPVC}
       EVALUATION_MODE: ${ORACLE_EVALUATION_MODE:-hybrid}
       POLL_INTERVAL: ${ORACLE_POLL_INTERVAL:-5}
-      ORACLE_DEBUGPY_HOST: 0.0.0.0
-      ORACLE_DEBUGPY_PORT: 5678
+    volumes:
+      - vc_bundle:/app/credentials:ro
     ports:
       - "5678:5678"
     command: ["python", "-Xfrozen_modules=off", "-m", "oracle.node.oracle_node"]
@@ -80,6 +108,7 @@ services:
     depends_on:
       - aggregator
       - anvil
+      - vc_sync
 
   oracle_moderna:
     build:
@@ -103,14 +132,19 @@ services:
       FUSEKI_PASS: ${FUSEKI_PASS:-admin123}
       FUSEKI_ACCEPT: ${FUSEKI_ACCEPT:-text/turtle}
       FUSEKI_FORMAT: ${FUSEKI_FORMAT:-turtle}
-      VC_PATHS: ${VC_PATHS:-credentials/issued}
+      VC_PATHS: ${VC_PATHS:-/app/credentials/issued}
       VC_PROPERTY: ${VC_PROPERTY:-hasGDPVC}
       EVALUATION_MODE: vc_only
       POLL_INTERVAL: ${ORACLE_POLL_INTERVAL:-5}
+      ORACLE_DEBUGPY_HOST: 0.0.0.0
+      ORACLE_DEBUGPY_PORT: 5678
+    volumes:
+      - vc_bundle:/app/credentials:ro
     command: ["python", "-Xfrozen_modules=off", "-m", "oracle.node.oracle_node"]
     depends_on:
       - aggregator
       - anvil
+      - vc_sync
 
   oracle_dhl:
     build:
@@ -134,12 +168,18 @@ services:
       FUSEKI_PASS: ${FUSEKI_PASS:-admin123}
       FUSEKI_ACCEPT: ${FUSEKI_ACCEPT:-text/turtle}
       FUSEKI_FORMAT: ${FUSEKI_FORMAT:-turtle}
-      VC_PATHS: ${VC_PATHS:-credentials/issued}
+      VC_PATHS: ${VC_PATHS:-/app/credentials/issued}
       VC_PROPERTY: ${VC_PROPERTY:-hasGDPVC}
       EVALUATION_MODE: telemetry
       TELEMETRY_PATH: ${TELEMETRY_PATH:-state/telemetry_metrics.json}
       POLL_INTERVAL: ${ORACLE_POLL_INTERVAL:-5}
+    volumes:
+      - vc_bundle:/app/credentials:ro
     command: ["python", "-Xfrozen_modules=off", "-m", "oracle.node.oracle_node"]
     depends_on:
       - aggregator
       - anvil
+      - vc_sync
+
+volumes:
+  vc_bundle:

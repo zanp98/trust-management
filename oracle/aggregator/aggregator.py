@@ -190,13 +190,9 @@ class AggregatorService:
         positive = sum(1 for r in reports if r.report.decision)
         decision = positive * 2 >= len(reports)
 
-        # Median for score
-        scores = sorted(r.report.score for r in reports)
-        mid = len(scores) // 2
-        if len(scores) % 2 == 1:
-            score = scores[mid]
-        else:
-            score = (scores[mid - 1] + scores[mid]) // 2
+        # Average for score (basis points), rounded to nearest int
+        scores = [r.report.score for r in reports]
+        score = int(round(sum(scores) / len(scores)))
 
         # Bitwise majority for flags
         flags = 0

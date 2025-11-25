@@ -19,3 +19,5 @@ docs/
 
 /tests/simulations/__pycache__
 /tests/__pycache__
+
+.venv/

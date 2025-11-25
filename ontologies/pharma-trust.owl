@@ -14,6 +14,23 @@
     <!-- 
     ///////////////////////////////////////////////////////////////////////////////////////
     //
+    // Annotation properties
+    //
+    ///////////////////////////////////////////////////////////////////////////////////////
+     -->
+
+    
+
+
+    <!-- http://example.org/trust#trustedPartner -->
+
+    <owl:AnnotationProperty rdf:about="http://example.org/trust#trustedPartner"/>
+    
+
+
+    <!-- 
+    ///////////////////////////////////////////////////////////////////////////////////////
+    //
     // Data properties
     //
     ///////////////////////////////////////////////////////////////////////////////////////
@@ -113,6 +130,24 @@
     
 
 
+    <!-- http://example.org/trust#hasRecallRate -->
+
+    <owl:DatatypeProperty rdf:about="http://example.org/trust#hasRecallRate">
+        <rdfs:domain rdf:resource="http://example.org/trust#Transporter"/>
+        <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#float"/>
+    </owl:DatatypeProperty>
+    
+
+
+    <!-- http://example.org/trust#hasTempDeviationScore -->
+
+    <owl:DatatypeProperty rdf:about="http://example.org/trust#hasTempDeviationScore">
+        <rdfs:domain rdf:resource="http://example.org/trust#Manufacturer"/>
+        <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#float"/>
+    </owl:DatatypeProperty>
+    
+
+
     <!-- http://example.org/trust#hasTempViolationRate -->
 
     <owl:DatatypeProperty rdf:about="http://example.org/trust#hasTempViolationRate">
@@ -158,14 +193,6 @@
     <!-- http://example.org/trust#Pharmacy -->
 
     <owl:Class rdf:about="http://example.org/trust#Pharmacy">
-        <rdfs:subClassOf rdf:resource="http://example.org/trust#Actor"/>
-    </owl:Class>
-    
-
-
-    <!-- http://example.org/trust#Regulator -->
-
-    <owl:Class rdf:about="http://example.org/trust#Regulator">
         <rdfs:subClassOf rdf:resource="http://example.org/trust#Actor"/>
     </owl:Class>
     
@@ -308,12 +335,38 @@
     
 
 
+    <!-- http://example.org/trust#BioPharm -->
+
+    <owl:NamedIndividual rdf:about="http://example.org/trust#BioPharm">
+        <rdf:type rdf:resource="http://example.org/trust#Manufacturer"/>
+        <hasAuditScore rdf:datatype="http://www.w3.org/2001/XMLSchema#float">0.9</hasAuditScore>
+        <hasDID>did:key:z6MkbioPharm987654321cdefg</hasDID>
+        <hasGDPVC rdf:datatype="http://www.w3.org/2001/XMLSchema#boolean">true</hasGDPVC>
+        <hasGMP rdf:datatype="http://www.w3.org/2001/XMLSchema#boolean">true</hasGMP>
+        <hasTempDeviationScore rdf:datatype="http://www.w3.org/2001/XMLSchema#float">0.08</hasTempDeviationScore>
+    </owl:NamedIndividual>
+    
+
+
+    <!-- http://example.org/trust#CanaryLabs -->
+
+    <owl:NamedIndividual rdf:about="http://example.org/trust#CanaryLabs">
+        <rdf:type rdf:resource="http://example.org/trust#Manufacturer"/>
+        <hasAuditScore rdf:datatype="http://www.w3.org/2001/XMLSchema#float">0.81</hasAuditScore>
+        <hasDID>did:key:z6Mkcanarylabs13579bdfhjlnp</hasDID>
+        <hasGDPVC rdf:datatype="http://www.w3.org/2001/XMLSchema#boolean">false</hasGDPVC>
+        <hasGMP rdf:datatype="http://www.w3.org/2001/XMLSchema#boolean">true</hasGMP>
+        <hasTempDeviationScore rdf:datatype="http://www.w3.org/2001/XMLSchema#float">0.12</hasTempDeviationScore>
+    </owl:NamedIndividual>
+    
+
+
     <!-- http://example.org/trust#DHL -->
 
     <owl:NamedIndividual rdf:about="http://example.org/trust#DHL">
         <rdf:type rdf:resource="http://example.org/trust#Transporter"/>
         <hasDID>did:key:z6MkuruPZNP71MGVetJzof487d83iKXJgwK87Z1rDiAD9q6s</hasDID>
-        <hasDeliveryPunctuality rdf:datatype="http://www.w3.org/2001/XMLSchema#float">0.95</hasDeliveryPunctuality>
+        <hasDeliveryPunctuality rdf:datatype="http://www.w3.org/2001/XMLSchema#decimal">0.94</hasDeliveryPunctuality>
         <hasTempViolationRate rdf:datatype="http://www.w3.org/2001/XMLSchema#float">0.02</hasTempViolationRate>
     </owl:NamedIndividual>
     
@@ -341,6 +394,44 @@
     
 
 
+    <!-- http://example.org/trust#GreenPharmacy -->
+
+    <owl:NamedIndividual rdf:about="http://example.org/trust#GreenPharmacy">
+        <rdf:type rdf:resource="http://example.org/trust#Pharmacy"/>
+        <hasDID>did:key:z6Mkgreenpharm2468acegjlqs</hasDID>
+        <hasGDPVC rdf:datatype="http://www.w3.org/2001/XMLSchema#boolean">true</hasGDPVC>
+        <hasLicense rdf:datatype="http://www.w3.org/2001/XMLSchema#boolean">true</hasLicense>
+        <hasPrescriptionComplianceRate rdf:datatype="http://www.w3.org/2001/XMLSchema#float">0.94</hasPrescriptionComplianceRate>
+    </owl:NamedIndividual>
+    
+
+
+    <!-- http://example.org/trust#HealthChain -->
+
+    <owl:NamedIndividual rdf:about="http://example.org/trust#HealthChain">
+        <rdf:type rdf:resource="http://example.org/trust#Transporter"/>
+        <hasDID>did:key:z6Mkhealthchain123456789abc</hasDID>
+        <hasDeliveryPunctuality rdf:datatype="http://www.w3.org/2001/XMLSchema#float">0.97</hasDeliveryPunctuality>
+        <hasGDPVC rdf:datatype="http://www.w3.org/2001/XMLSchema#boolean">true</hasGDPVC>
+        <hasRecallRate rdf:datatype="http://www.w3.org/2001/XMLSchema#float">0.015</hasRecallRate>
+        <hasTempViolationRate rdf:datatype="http://www.w3.org/2001/XMLSchema#float">0.03</hasTempViolationRate>
+    </owl:NamedIndividual>
+    
+
+
+    <!-- http://example.org/trust#MedLogix -->
+
+    <owl:NamedIndividual rdf:about="http://example.org/trust#MedLogix">
+        <rdf:type rdf:resource="http://example.org/trust#Distributor"/>
+        <hasDID>did:key:z6Mkmedlogix123456789abcde</hasDID>
+        <hasDeliveryPunctuality rdf:datatype="http://www.w3.org/2001/XMLSchema#float">0.93</hasDeliveryPunctuality>
+        <hasGDPVC rdf:datatype="http://www.w3.org/2001/XMLSchema#boolean">true</hasGDPVC>
+        <hasLicense rdf:datatype="http://www.w3.org/2001/XMLSchema#boolean">true</hasLicense>
+        <trustedPartner rdf:resource="http://example.org/trust#HealthChain"/>
+    </owl:NamedIndividual>
+    
+
+
     <!-- http://example.org/trust#MediPlus -->
 
     <owl:NamedIndividual rdf:about="http://example.org/trust#MediPlus">
@@ -356,7 +447,6 @@
 
     <owl:NamedIndividual rdf:about="http://example.org/trust#Novartis">
         <rdf:type rdf:resource="http://example.org/trust#Manufacturer"/>
-        <rdf:type rdf:resource="http://example.org/trust#RegulatoryAuthority"/>
         <hasAuditScore rdf:datatype="http://www.w3.org/2001/XMLSchema#float">0.82</hasAuditScore>
         <hasDID>did:key:z6MkqTxBfq3bDT1MHGZdGxyvjt3cJkZJsq1ZD3zyZsAEY77q</hasDID>
         <hasGMP rdf:datatype="http://www.w3.org/2001/XMLSchema#boolean">true</hasGMP>
@@ -372,6 +462,19 @@
         <hasDID>did:key:z6MkqYUPZM9zRaA3YxZPh1RJLLDUrrV39Hpa7vLRRkvkxpZM</hasDID>
         <hasGDPVC rdf:datatype="http://www.w3.org/2001/XMLSchema#boolean">true</hasGDPVC>
         <hasGMP rdf:datatype="http://www.w3.org/2001/XMLSchema#boolean">true</hasGMP>
+    </owl:NamedIndividual>
+    
+
+
+    <!-- http://example.org/trust#SkyFreight -->
+
+    <owl:NamedIndividual rdf:about="http://example.org/trust#SkyFreight">
+        <rdf:type rdf:resource="http://example.org/trust#Transporter"/>
+        <hasDID>did:key:z6Mkskyfreight112233445566</hasDID>
+        <hasDeliveryPunctuality rdf:datatype="http://www.w3.org/2001/XMLSchema#float">0.9</hasDeliveryPunctuality>
+        <hasGDPVC rdf:datatype="http://www.w3.org/2001/XMLSchema#boolean">false</hasGDPVC>
+        <hasRecallRate rdf:datatype="http://www.w3.org/2001/XMLSchema#float">0.035</hasRecallRate>
+        <hasTempViolationRate rdf:datatype="http://www.w3.org/2001/XMLSchema#float">0.08</hasTempViolationRate>
     </owl:NamedIndividual>
 </rdf:RDF>
 
