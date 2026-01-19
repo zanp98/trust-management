@@ -1,0 +1,31 @@
+sequenceDiagram
+    autonumber
+    participant Fuseki as Fuseki
+    participant VC as VC DB
+    participant Oracle as Orakelj (vozlišče)
+    participant Agg as Agregator
+    participant Chain as Blockchain – TrustGraph.sol
+
+    rect rgba(200,230,255,0.25)
+        Oracle->>Fuseki: Pridobi/posodobi ontologijo (SPARQL / lokalni OWL)
+        Oracle->>VC: Naloži VC in preveri preklic
+        Oracle-->>Oracle: Izvede hibridni eval (pravila + Beta statistika)
+        Oracle-->>Oracle: Vključi policy_hash + credential_hash
+        Oracle->>Agg: POST /reports (request_id, SignedOracleReport)
+    end
+
+    Agg->>Agg: Preveri podpis (EIP-191) + allowlist
+    Agg->>Agg: Deduplikacija (request_id, node_id)
+    Agg->>Chain: recordOracleSubmission(requestId, evaluatorHash,…)
+
+    Agg-->>Agg: Hrani poročila do kvoruma
+
+    alt Dosežen kvorum
+        Agg->>Agg: Agregira (večina bool, mediana score, bitni flagi)
+        Agg->>Agg: Preveri credential_hash proti VC DB
+        Agg->>Chain: fulfillTrustReport(requestId, agregat)
+    else Premalo poročil / napaka
+        Agg-->>Agg: Čaka ali zavrne (logiranje)
+    end
+
+    Chain-->>Agg: Dogodki (OracleReportRecorded / TrustOracleFulfilled)

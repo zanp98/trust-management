@@ -1,0 +1,27 @@
+%%{init: {
+  'theme': 'neutral',
+  "fontFamily":"CMU Serif, Times New Roman, serif",
+  'fontSize': "35px",
+  'themeCSS': '.messageLine0,.messageLine1{stroke-width:4px;}.actor-line{stroke-width:6px;}'
+}}%%
+sequenceDiagram
+  participant App as Aplikacija / Uporabnik
+  participant RPC as Veriga blokov (odjemalec RPC)
+  participant Chain as Pametna pogodba TrustGraph.sol
+  participant DON as Decentralizirano omrežje orakljev
+  participant Fuseki as Fuseki
+  participant VC as Baza VC
+  autonumber
+  App ->> RPC: Zahteva ponovnega izračuna (subjekt)
+  RPC ->> Chain: requestTrustReport(subject, ttl)
+  Chain -->> RPC: requestId + potrditev transakcije
+  Chain -->> DON: Dogodek TrustOracleRequested(requestId, subject)
+  rect rgba(200,230,255,0.7)
+    DON ->> Fuseki: Osveži ontologijo / pridobi dejstva
+    DON ->> VC: Preveri veljavne VC
+    DON -->> DON: Izvrši hibridni izračun (politike + statistika)
+    DON ->> Chain: recordOracleSubmission(requestId, evaluatorHash,…)
+  end
+  DON -->> DON: Dosežen kvorum, agregacija odločitev
+  DON ->> Chain: fulfillTrustReport(requestId, report)
+  Chain -->> RPC: Dogodek TrustOracleFulfilled(decision, score, flags)

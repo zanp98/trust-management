@@ -1,0 +1,46 @@
+flowchart TB
+
+%% --- LAYER 1: SUPPLY CHAIN ACTORS ---
+subgraph SupplyChain["Akterji farmacevtske verige"]
+    Producer["Proizvajalec"]
+    Distributor["Distributer"]
+    Pharmacy["Lekarna"]
+    Regulator["Regulator"]
+end
+
+Producer --> Distributor --> Pharmacy --> Regulator
+
+%% --- LAYER 2: APPLICATION + BLOCKCHAIN SERVICE ---
+subgraph ApplicationLayer["Uporabniška aplikacija in storitve"]
+    GUI["Uporabniški vmesnik"]
+    BCService["Storitev za dostop do verige blokov"]
+end
+
+Producer --> GUI
+Distributor --> GUI
+Pharmacy --> GUI
+Regulator --> GUI
+
+GUI --> BCService
+
+%% --- LAYER 3: SMART CONTRACTS + ORACLES ---
+subgraph BlockchainLayer["Plast verige blokov"]
+    SmartContract["Pametna pogodba TrustGraph.sol"]
+    Oracles["Omrežje orakljev"]
+end
+
+BCService --> SmartContract
+SmartContract --> Oracles
+
+%% --- LAYER 4: KNOWLEDGE BASE ---
+subgraph KnowledgeLayer["Plast znanja"]
+    Ontology["Ontologija (pharma-trust.owl)"]
+    VCStore["Skladišče preverljivih dokazil VC"]
+end
+
+Oracles --> Ontology
+Oracles --> VCStore
+
+%% --- LAYER 5: DATA SOURCES ---
+DataSources["Zunanji viri podatkov"] --> Ontology
+DataSources --> VCStore

@@ -1,0 +1,46 @@
+%%{init: {"theme": "neutral", "themeVariables": { "fontSize": "18px" }}}%%
+flowchart LR
+  classDef area fill:#eef6ff,stroke:#3a6ea5,stroke-width:0.8px;
+  classDef data fill:#fffaf0,stroke:#c77e00,stroke-width:0.8px;
+  classDef proc fill:#f6ffed,stroke:#237804,stroke-width:0.8px;
+  classDef hub fill:#e8f0ff,stroke:#003a8c,stroke-width:1.2px;
+
+  TG[[Pametna pogodba<br/>TrustGraph.sol<br/>TrustOracleRequested]]:::hub
+  Agg[Agregator<br/>podpis + allowlist<br/>VC preverba<br/>kvorum + publish]:::hub
+
+  subgraph OrakeljA["Orakelj A (hibrid)"]
+    OntoA[(Ontologija / SPARQL)]:::data
+    StatA[(Statistika)]:::data
+    VCA[(Shramba VC)]:::data
+    EvalA[Pravila + uteži + VC]:::proc
+    OntoA --> EvalA
+    StatA --> EvalA
+    VCA --> EvalA
+  end
+
+  subgraph OrakeljB["Orakelj B (VC-only)"]
+    VCB[(Shramba VC)]:::data
+    EvalB[VC-only PASS/FAIL]:::proc
+    VCB --> EvalB
+  end
+
+  subgraph OrakeljC["Orakelj C (telemetrija)"]
+    TeleC[(Telemetrija)]:::data
+    VCC[(Shramba VC, opcijsko)]:::data
+    EvalC[Telemetry scoring]:::proc
+    TeleC --> EvalC
+    VCC --> EvalC
+  end
+
+  TG -- "zahteva (requestId, subject)" --> OrakeljA
+  TG --> OrakeljB
+  TG --> OrakeljC
+
+  EvalA -->|SignedOracleReport| Agg
+  EvalB -->|SignedOracleReport| Agg
+  EvalC -->|SignedOracleReport| Agg
+
+  Agg -->|recordOracleSubmission<br/>fulfillTrustReport| TG
+
+  class TG,Agg hub;
+  class OrakeljA,OrakeljB,OrakeljC area;

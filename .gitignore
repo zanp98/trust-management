@@ -9,10 +9,6 @@ out/
 
 /src/__pycache__/
 
-
-# Docs
-docs/
-
 # Dotenv file
 .env
 .DS_

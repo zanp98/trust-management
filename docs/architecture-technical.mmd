@@ -1,0 +1,65 @@
+flowchart TB
+  %% Tehnični pogled
+  classDef area fill:#eef6ff,stroke:#3a6ea5,stroke-width:0.8px;
+  classDef svc fill:#f6ffed,stroke:#237804,stroke-width:0.8px;
+  classDef comp fill:#fffaf0,stroke:#c77e00,stroke-width:0.8px;
+
+  subgraph Chain[Na verigi]
+    TG[[Pametna pogodba<br/>TrustGraph.sol]]
+    NoteTG["Funkcije:<br/>requestTrustReport<br/>recordOracleSubmission<br/>fulfillTrustReport<br/>getTrustMetrics<br/><br/>Dogodki:<br/>TrustOracleRequested<br/>OracleReportRecorded<br/>TrustOracleFulfilled"]:::comp
+  end
+
+  subgraph AggBox[Agregator]
+    Agg[Agregator]:::svc
+    AggSig[Preverjanje podpisa in dovoljenih naslovov]:::comp
+    AggVC[Preverjanje VC]:::comp
+    AggQuorum[Kvorum in agregacija<br/>večina za boolean, mediana točke, bitni zastavice]:::comp
+  end
+
+  subgraph Nodes[Vozlišča orakljev]
+    subgraph N1[Orakelj A]
+      N1Eval[Oceni subjekt]:::comp
+      N1W[Podpiše poročilo]:::comp
+    end
+    subgraph N2[Orakelj B]
+      N2Eval[Oceni subjekt]:::comp
+      N2W[Podpiše poročilo]:::comp
+    end
+    subgraph N3[Orakelj C]
+      N3Eval[Oceni subjekt]:::comp
+      N3W[Podpiše poročilo]:::comp
+    end
+  end
+
+  subgraph Data[Viri podatkov]
+    Fuseki[(TrustKB / Fuseki baza)]:::svc
+    VC[(Preverljive poverilnice VC)]:::comp
+  end
+
+  User[EMA / Operater]:::comp -->|requestTrustReport| TG
+  TG -->|Dogodek: TrustOracleRequested| N1
+  TG -->|Dogodek| N2
+  TG -->|Dogodek| N3
+
+  N1Eval --> Fuseki
+  N1Eval --> VC
+  N2Eval --> Fuseki
+  N2Eval --> VC
+  N3Eval --> Fuseki
+  N3Eval --> VC
+
+  N1Eval -->|OracleReport| N1W
+  N2Eval -->|OracleReport| N2W
+  N3Eval -->|OracleReport| N3W
+
+  N1W -->|SignedOracleReport| Agg
+  N2W -->|SignedOracleReport| Agg
+  N3W -->|SignedOracleReport| Agg
+
+  Agg --> AggSig --> AggVC --> AggQuorum
+  AggQuorum -->|recordOracleSubmission za vsako poročilo| TG
+  AggQuorum -->|fulfillTrustReport po kvorumu| TG
+
+  Reader[Odjemalci / Nadzorne plošče / CLI]:::comp -->|getTrustMetrics| TG
+
+  class Chain,AggBox,Nodes,Data area;

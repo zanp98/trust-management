@@ -1,0 +1,61 @@
+%%{init: {"themeVariables": { "fontSize": "18px" }}}%%
+flowchart LR
+  %% Razredi
+  classDef area fill:#eef6ff,stroke:#3a6ea5,stroke-width:0.6px;
+  classDef soft fill:#fffaf0,stroke:#c77e00,stroke-width:0.8px;
+  classDef bigText font-size:26px;
+
+  subgraph Ljudje [Ljudje in organizacije]
+    A[Regulator]
+    P[Izdelovalec zdravil]
+    L[Transporter]
+    K[Lekarna]
+  end
+
+  subgraph Veriga [Veriga blokov]
+    TG[[Pametna pogodba<br/>TrustGraph.sol]]
+  end
+
+  subgraph Oraklji [Mreža orakljev]
+    N1[Orakelj A]
+    N2[Orakelj B]
+    N3[Orakelj C]
+    Agg[Agregator]:::soft
+  end
+
+  subgraph Viri [Viri podatkov]
+    VC[(Shramba VC)]
+    KB[(Baza Fuseki)]
+  end
+
+  %% --- Ljudje -> veriga ---
+  A -- Zahteva poročila o zaupanju --> TG
+  P --> TG
+  L --> TG
+  K --> TG
+  %% samo ena puščica z labelo za "Branje odločitve"
+  P -. Branje odločitve .- TG
+
+  %% --- Veriga -> oraklji ---
+  TG -- Zahteva za izračun --> N1
+  TG --> N2
+  TG --> N3
+
+  %% --- Oraklji -> viri ---
+  N1 -- Poizvedbe / preverbe --> KB
+  N1 --> VC
+  N2 --> KB
+  N3 --> KB
+
+  %% --- Oraklji -> agregator ---
+  N1 -- Podpisano poročilo --> Agg
+  N2 --> Agg
+  N3 --> Agg
+
+  %% --- Agregator -> veriga ---
+  Agg -- Konsenzni rezultat zaupanja --> TG
+  Agg -- Ločeni rezultati zaupanja --> TG
+
+  %% večji font za glavna vozlišča
+  class A,P,L,K,TG,N1,N2,N3,Agg,VC,KB,Ljudje,Veriga,Oraklji,Viri bigText;
+  class Ljudje,Veriga,Oraklji,Viri area;

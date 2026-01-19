@@ -1,0 +1,26 @@
+---
+config:
+  theme: default
+  fontFamily: serif
+  themeVariables:
+    fontFamily: serif
+  layout: elk
+---
+flowchart LR
+ subgraph Sources["Plast znanja"]
+        Tel["Telemetrija"]
+        Ont["Ontologija"]
+        VC["Preverljive<br>poverilnice"]
+  end
+ subgraph Oracles["Omrežje orakljev"]
+        OA["Orakelj A<br>hibridni pogled"]
+        OB["Orakelj B<br>VC"]
+        OC["Orakelj C<br>telemetrija"]
+  end
+    Ont -.-> OB & OC
+    Ont --> OA
+    VC --> OA & OB
+    Tel --> OA & OC
+    OA --> Agg["Agregator"]
+    OB --> Agg
+    OC --> Agg

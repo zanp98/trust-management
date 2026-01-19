@@ -9,8 +9,9 @@ PY := python
 # Scripts
 S_DEPLOY   := scripts/deploy.sh
 S_REQUEST  := scripts/request_report.sh
+S_ORACLE_REPORTS := scripts/oracle_reports.sh
 
-.PHONY: help env chain deploy request don-up don-down clean install run add-mf link rm hash test
+.PHONY: help env chain deploy request oracle-reports don-up don-down clean install run add-mf link rm hash test
 
 help:
 	@echo "Make targets:"
@@ -20,6 +21,7 @@ help:
 	@echo "  make don-up    # start aggregator + oracle nodes in Docker"
 	@echo "  make don-down  # stop the DON docker stack"
 	@echo "  make request   # request a trust report via DON (uses scripts/request_report.sh)"
+	@echo "  make oracle-reports # list OracleReportRecorded events (per-oracle decisions)"
 	@echo "  make clean     # remove generated logs/state"
 
 env:
@@ -42,6 +44,9 @@ set-aggregator:
 
 request:
 	@bash $(S_REQUEST) $(ARGS)
+
+oracle-reports:
+	@bash $(S_ORACLE_REPORTS) $(ARGS)
 
 don-up:
 	@docker compose up -d --build aggregator oracle_node oracle_moderna oracle_dhl
