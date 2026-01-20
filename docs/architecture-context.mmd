@@ -1,11 +1,15 @@
-%%{init: {"themeVariables": { "fontSize": "18px" }}}%%
+---
+config:
+  themeVariables:
+    fontSize: 20px
+  theme: default
+---
 flowchart LR
-  %% Razredi
-  classDef area fill:#eef6ff,stroke:#3a6ea5,stroke-width:0.6px;
+  classDef area fill:#eef6ff,stroke:#3a6ea5,stroke-width:0.6px,font-size:24px;
   classDef soft fill:#fffaf0,stroke:#c77e00,stroke-width:0.8px;
-  classDef bigText font-size:26px;
+  classDef bigText font-size:24px;
 
-  subgraph Ljudje [Ljudje in organizacije]
+  subgraph Ljudje [Akterji]
     A[Regulator]
     P[Izdelovalec zdravil]
     L[Transporter]
@@ -16,46 +20,34 @@ flowchart LR
     TG[[Pametna pogodba<br/>TrustGraph.sol]]
   end
 
-  subgraph Oraklji [Mreža orakljev]
-    N1[Orakelj A]
-    N2[Orakelj B]
-    N3[Orakelj C]
+  subgraph Oraklji [Omrežje orakljev]
+    N1[Vozlišče oraklja A]
+    N2[Vozlišče oraklja B]
+    N3[Vozlišče oraklja C]
     Agg[Agregator]:::soft
   end
 
   subgraph Viri [Viri podatkov]
-    VC[(Shramba VC)]
+    VC[(Shramba dokazil VC)]
     KB[(Baza Fuseki)]
   end
-
-  %% --- Ljudje -> veriga ---
   A -- Zahteva poročila o zaupanju --> TG
-  P --> TG
-  L --> TG
-  K --> TG
-  %% samo ena puščica z labelo za "Branje odločitve"
-  P -. Branje odločitve .- TG
-
-  %% --- Veriga -> oraklji ---
+  P -- Branje odločitve --> TG
+  L -- Branje odločitve --> TG
+  K -- Branje odločitve --> TG
   TG -- Zahteva za izračun --> N1
-  TG --> N2
-  TG --> N3
-
-  %% --- Oraklji -> viri ---
+  TG -- Zahteva za izračun --> N2
+  TG -- Zahteva za izračun --> N3
   N1 -- Poizvedbe / preverbe --> KB
-  N1 --> VC
-  N2 --> KB
-  N3 --> KB
+  N2 -- Poizvedbe / preverbe --> KB
+  N3 -- Poizvedbe / preverbe --> KB
 
-  %% --- Oraklji -> agregator ---
+  N2 --> VC
+  N3 --> VC
   N1 -- Podpisano poročilo --> Agg
-  N2 --> Agg
-  N3 --> Agg
-
-  %% --- Agregator -> veriga ---
+  N2 -- Podpisano poročilo --> Agg
+  N3 -- Podpisano poročilo --> Agg
   Agg -- Konsenzni rezultat zaupanja --> TG
   Agg -- Ločeni rezultati zaupanja --> TG
-
-  %% večji font za glavna vozlišča
-  class A,P,L,K,TG,N1,N2,N3,Agg,VC,KB,Ljudje,Veriga,Oraklji,Viri bigText;
+  class A,P,L,K,TG,N1,N2,N3,Agg,VC,KB bigText;
   class Ljudje,Veriga,Oraklji,Viri area;
