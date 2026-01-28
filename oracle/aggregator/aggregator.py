@@ -138,9 +138,10 @@ class AggregatorService:
 
     async def submit_signed_report(self, request_id: bytes, signed_report: SignedOracleReport) -> None:
         LOG.info(
-            "received signed report for %s from %s",
+            "received signed report for %s from %s with signature %s",
             request_id.hex(),
             signed_report.node_id,
+            signed_report.signature.hex(),
         )
         bucket = self._pending[request_id]
         if any(existing.node_id == signed_report.node_id for existing in bucket):
@@ -277,6 +278,7 @@ class AggregatorService:
         node_id: str,
     ) -> None:
         report = signed.report
+        signature = signed.signature
         node_address = Web3.to_checksum_address(node_id)
         fn = self._contract.functions.recordOracleSubmission(
             request_id,

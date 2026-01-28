@@ -1,0 +1,11 @@
+make verify-oracle-signature \
+  ARGS="--subject 0xdb237a1e0bd7acf764a0295b586052d3944ade15e1146e16e596ed97795d7997 \
+        --decision true \
+        --score 8879 \
+        --flags 20 \
+        --as-of 1768907533 \
+        --policy-hash 0xf4d1947ed61368ed2faab44f6a16df8e43031ed7b4615ef7f3f10246d525c354 \
+        --credential-hash 0xac2c5789175018bbfb529451326330cd6e0cb9af89dd4cacdda8254ae927fae7 \
+        --private-key 0x47e179ec197488593b187f80a00eb0da91f1b9d0b13f8733639f19c30a34926a"
+
+        /Library/Frameworks/Python.framework/Versions/3.10/lib/python3.10/site-packages/eth_keys/datatypes.py

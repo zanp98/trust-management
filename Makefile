@@ -3,15 +3,16 @@ SHELL := /bin/bash
 ENV_FILE := .env
 ARGS ?=
 
-# Python interpreter (override via `make PY=python3`)
-PY := python
+# Python interpreter (override via `make PY=python`)
+PY := python3
 
 # Scripts
 S_DEPLOY   := scripts/deploy.sh
 S_REQUEST  := scripts/request_report.sh
 S_ORACLE_REPORTS := scripts/oracle_reports.sh
+S_VERIFY_ORACLE_SIGNATURE := scripts/verify_oracle_signature.py
 
-.PHONY: help env chain deploy request oracle-reports don-up don-down clean install run add-mf link rm hash test
+.PHONY: help env chain deploy request oracle-reports verify-oracle-signature don-up don-down clean install run add-mf link rm hash test
 
 help:
 	@echo "Make targets:"
@@ -22,6 +23,7 @@ help:
 	@echo "  make don-down  # stop the DON docker stack"
 	@echo "  make request   # request a trust report via DON (uses scripts/request_report.sh)"
 	@echo "  make oracle-reports # list OracleReportRecorded events (per-oracle decisions)"
+	@echo "  make verify-oracle-signature # sign a report and recover signer (optional POST to aggregator)"
 	@echo "  make clean     # remove generated logs/state"
 
 env:
@@ -47,6 +49,9 @@ request:
 
 oracle-reports:
 	@bash $(S_ORACLE_REPORTS) $(ARGS)
+
+verify-oracle-signature:
+	@$(PY) $(S_VERIFY_ORACLE_SIGNATURE) $(ARGS)
 
 don-up:
 	@docker compose up -d --build aggregator oracle_node oracle_moderna oracle_dhl

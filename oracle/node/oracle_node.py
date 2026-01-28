@@ -273,6 +273,7 @@ class OracleNode:
         # digest = Web3.keccak(message)
         signable = encode_defunct(text=message)
         signature = self._w3.eth.account.sign_message(signable, private_key=self._config.private_key).signature
+        LOG.info("signed report for subject %s, signature=%s", report.subject.hex(), signature)
         node_id = self._account.address
         return SignedOracleReport(report=report, node_id=node_id, signature=signature)
 
